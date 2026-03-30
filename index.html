@@ -281,6 +281,7 @@ html, body { height: 100%; overflow: hidden;
   padding: 14px 20px calc(32px + var(--sheet-safe));
   box-shadow: 0 -8px 44px rgba(26,39,68,.22);
   animation: su 0.32s cubic-bezier(.32,.72,0,1);
+  max-height: 70vh; overflow-y: auto;
 }
 @keyframes su { from{transform:translateY(100%)} to{transform:translateY(0)} }
 .cp-title {
@@ -325,6 +326,18 @@ html, body { height: 100%; overflow: hidden;
   min-width: 15px; height: 15px;
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
 }
+
+/* ──────────── LEGEND BUTTON ──────────── */
+#legend-btn {
+  position: fixed; bottom: 68px; right: 16px; z-index: 800;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--cream); border: 1.5px solid var(--sand);
+  box-shadow: 0 2px 14px rgba(26,39,68,.18);
+  font-size: 16px; font-weight: 700; color: var(--indigo);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+#legend-btn:active { transform: scale(0.91); }
 
 /* ──────────── DIVIDER ──────────── */
 .div { height: 1px; background: var(--sand2); margin: 16px 0; }
@@ -382,6 +395,9 @@ html, body { height: 100%; overflow: hidden;
   <button class="fchip"    data-f="ibd" onclick="setFilter('ibd')"><span id="f-ibd">💚 IBDパートナー</span></button>
   <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
 </div>
+
+<!-- Legend -->
+<button id="legend-btn" onclick="openLegend()">？</button>
 
 <!-- Overlay -->
 <div id="overlay" onclick="closeSheet()"></div>
@@ -546,45 +562,50 @@ function applyFilter(f) {
 ═══════════════════════════════════ */
 async function loadCity(cityKey) {
   ldmsg(tr('loadCity'));
-  const ck = `oasis_v3_${cityKey}`;
+  const ck = `oasis_v4_${cityKey}`;
   try {
     const raw = localStorage.getItem(ck);
     if (raw) {
       const {ts, d} = JSON.parse(raw);
-      if (Date.now() - ts < CACHE_MS) { renderCity(d); hideLoading(); return; }
+      if (Date.now() - ts < CACHE_MS) { renderCity(d); return; }
     }
   } catch(e) {}
 
   try {
-    // Load chunks: pattern {cityKey}_chunk_{n}
-    const snap = await db.collection('toilets').get();
+    // Load from cities/{cityKey}/chunks/{0..n}
+    const meta = await db.collection('cities').doc(cityKey).get();
+    const numChunks = meta.exists ? (meta.data().chunks || 10) : 10;
     let toilets = [];
-    snap.docs.forEach(doc => {
-      if (doc.id.startsWith(cityKey + '_chunk_')) {
-        const items = doc.data().items || doc.data().data || [];
-        toilets = toilets.concat(items);
-      }
-    });
-    // Fallback: single doc
-    if (!toilets.length) {
-      const single = await db.collection('toilets').doc(cityKey).get();
-      if (single.exists) {
-        const data = single.data();
-        toilets = data.items || data.data || [];
-      }
+    for (let i = 0; i < numChunks; i++) {
+      try {
+        const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(String(i)).get();
+        if (snap.exists) {
+          const arr = snap.data().toilets || [];
+          toilets = toilets.concat(arr);
+        }
+      } catch(e) { break; }
     }
-    localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
+    if (toilets.length) {
+      localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
+    }
     renderCity(toilets);
   } catch(e) {
     console.error('Firestore error', e);
+  } finally {
+    hideLoading();
   }
-  hideLoading();
 }
 
 function renderCity(toilets) {
   clearMarkers();
+  if (userLat != null && userLng != null) {
+    toilets.sort((a, b) =>
+      Math.hypot(a.lat - userLat, a.lng - userLng) -
+      Math.hypot(b.lat - userLat, b.lng - userLng)
+    );
+  }
   allToilets = toilets;
-  toilets.forEach(t => addMarker(t, 0)); // review counts loaded separately on tap
+  toilets.forEach(t => addMarker(t, 0));
   applyFilter();
   updateHud(activeCity);
 }
@@ -664,10 +685,14 @@ function openSheet(html) {
   document.getElementById('sc').innerHTML = html;
   document.getElementById('sheet').classList.add('show');
   document.getElementById('overlay').classList.add('show');
+  document.getElementById('filter-bar').style.display = 'none';
+  document.getElementById('legend-btn').style.display = 'none';
 }
 function closeSheet() {
   document.getElementById('sheet').classList.remove('show');
   document.getElementById('overlay').classList.remove('show');
+  document.getElementById('filter-bar').style.display = '';
+  document.getElementById('legend-btn').style.display = '';
 }
 
 /* ═══════════════════════════════════
@@ -766,20 +791,26 @@ function renderReviewStep() {
     <div class="rv-q">${RV_ICONS[n]} ${tr(RV_Q_KEY[n])}</div>
     <div class="rv-qsub">${tr(RV_SUB[n])}</div>
     <div class="rv-choices">
-      <button class="rv-choice yes" onclick="answer(true)">
+      <button class="rv-choice yes" onclick="answer(true,this)">
         <span class="ce">✅</span><span>${tr('yes')}</span>
       </button>
-      <button class="rv-choice no" onclick="answer(false)">
+      <button class="rv-choice no" onclick="answer(false,this)">
         <span class="ce">❌</span><span>${tr('no')}</span>
       </button>
     </div>
   `);
 }
 
-function answer(val) {
+function answer(val, el) {
+  // Tap feedback
+  if (el) {
+    const isYes = val;
+    el.style.borderColor = isYes ? 'var(--moss)' : 'var(--brick)';
+    el.style.background = isYes ? '#EBF7EF' : '#FCECEB';
+  }
   reviewData[RV_STEPS[reviewStep]] = val;
   reviewStep++;
-  renderReviewStep();
+  setTimeout(() => renderReviewStep(), 200);
 }
 
 async function submitReview() {
@@ -820,8 +851,43 @@ async function submitReview() {
         });
       }
     });
+    // Update marker badge
+    const entry = allMarkers.find(({toilet}) => toilet.id === currentToilet.id);
+    if (entry) {
+      const doc = await db.collection('reviewSummaries').doc(currentToilet.id).get();
+      const total = doc.exists ? (doc.data().total || 1) : 1;
+      entry.m.setIcon(makeIcon(entry.toilet, total));
+    }
   } catch(e) { console.error('Review error', e); }
   setTimeout(closeSheet, 2600);
+}
+
+/* ═══════════════════════════════════
+   LEGEND
+═══════════════════════════════════ */
+function openLegend() {
+  const items = LANG === 'ja' ? [
+    {c:'🟢', t:'横綱', d:'公衆トイレ・必ず入れる'},
+    {c:'🟠', t:'大関', d:'コンビニ・駅（大抵入れる）'},
+    {c:'🟡', t:'関脇', d:'ホテル・チェーン店（頼めば使える）'},
+    {c:'🔴', t:'前頭', d:'一般店舗（確認が必要）'},
+  ] : [
+    {c:'🟢', t:'Yokozuna', d:'Public restrooms — always accessible'},
+    {c:'🟠', t:'Ozeki', d:'Convenience stores & stations'},
+    {c:'🟡', t:'Sekiwake', d:'Hotels & chain stores — ask to use'},
+    {c:'🔴', t:'Maegashira', d:'Other stores — may need to check'},
+  ];
+  const html = items.map(i =>
+    `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
+      <span style="font-size:24px;">${i.c}</span>
+      <div><div style="font-weight:700;font-size:15px;color:var(--indigo);">${i.t}</div>
+      <div style="font-size:12px;color:var(--text2);">${i.d}</div></div>
+    </div>`
+  ).join('<div class="div"></div>');
+  openSheet(`
+    <div class="t-name">${LANG === 'ja' ? 'Tier 凡例' : 'Tier Legend'}</div>
+    ${html}
+  `);
 }
 
 /* ═══════════════════════════════════
