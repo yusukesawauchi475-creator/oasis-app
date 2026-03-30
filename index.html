@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Oasis — いますぐ、トイレ。</title>
+<meta name="theme-color" content="#1A2744">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho+B1:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream:      #F9F5EE;
+  --indigo:     #1A2744;
+  --vermillion: #C63C28;
+  --sand:       #E2D5C0;
+  --sand2:      #EDE5D8;
+  --moss:       #3D7A4F;
+  --amber:      #C07830;
+  --gold:       #9A7A10;
+  --brick:      #8B3A2A;
+  --partner:    #4A6B2E;
+  --blue:       #3B82F6;
+  --text:       #1A2744;
+  --text2:      #5A6480;
+  --text3:      #9199AD;
+  --r: 14px;
+  --r-lg: 20px;
+  --sheet-safe: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden;
+  font-family: 'Zen Maru Gothic', 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+  background: var(--cream); color: var(--text); }
+
+/* ──────────── MAP ──────────── */
+#map {
+  position: fixed; inset: 0;
+  filter: sepia(0.12) saturate(0.85) brightness(1.04);
+}
+.leaflet-control-zoom,
+.leaflet-control-attribution { display: none !important; }
+
+/* ──────────── LOADING ──────────── */
+#loading {
+  position: fixed; inset: 0; z-index: 3000;
+  background: var(--cream);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.5s;
+}
+#loading.out { opacity: 0; pointer-events: none; }
+.ld-logo {
+  width: 80px; height: 80px; border-radius: 22px;
+  background: var(--vermillion);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 36px rgba(198,60,40,.45);
+  animation: ldpulse 1.6s ease-in-out infinite;
+}
+@keyframes ldpulse {
+  0%,100%{transform:scale(1);box-shadow:0 8px 36px rgba(198,60,40,.45)}
+  50%{transform:scale(1.07);box-shadow:0 12px 44px rgba(198,60,40,.6)}
+}
+.ld-title {
+  font-family: 'Shippori Mincho B1', serif;
+  font-size: 32px; font-weight: 800;
+  color: var(--indigo); letter-spacing: 0.06em;
+}
+.ld-sub { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+/* ──────────── LOGO ──────────── */
+#logo {
+  position: fixed; top: 16px; left: 16px; z-index: 900;
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--vermillion);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 16px rgba(198,60,40,.45);
+  cursor: pointer; user-select: none;
+}
+
+/* ──────────── CITY HUD ──────────── */
+#city-hud {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 900;
+  background: var(--indigo); color: #fff;
+  padding: 10px 22px; border-radius: 100px;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.03em;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 22px rgba(26,39,68,.38);
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+#city-hud:active { transform: translateX(-50%) scale(0.95); }
+#city-hud .hud-chevron { opacity: 0.55; font-size: 9px; margin-left: 2px; }
+
+/* ──────────── TOP RIGHT CONTROLS ──────────── */
+#controls {
+  position: fixed; top: 16px; right: 16px; z-index: 900;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ctrl {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--cream); border: none;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 14px rgba(26,39,68,.18);
+  cursor: pointer; font-size: 18px;
+  transition: transform 0.15s;
+}
+.ctrl:active { transform: scale(0.91); }
+.ctrl.lit { background: var(--indigo); }
+.ctrl.lit svg { stroke: white; }
+
+/* ──────────── FILTER BAR ──────────── */
+#filter-bar {
+  position: fixed; bottom: 20px; left: 0; right: 0; z-index: 800;
+  display: flex; gap: 8px; padding: 0 16px;
+  overflow-x: auto; scrollbar-width: none;
+}
+#filter-bar::-webkit-scrollbar { display: none; }
+.fchip {
+  flex-shrink: 0; padding: 9px 15px; border-radius: 100px;
+  background: var(--cream); border: 1.5px solid var(--sand);
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 12px; font-weight: 700; color: var(--text);
+  cursor: pointer; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(26,39,68,.12);
+  transition: all 0.15s;
+}
+.fchip.on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+.fchip:active { transform: scale(0.94); }
+
+/* ──────────── OVERLAY + SHEET ──────────── */
+#overlay {
+  position: fixed; inset: 0; z-index: 990;
+  background: rgba(26,39,68,.42);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.28s;
+}
+#overlay.show { opacity: 1; pointer-events: all; }
+
+#sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: var(--cream);
+  border-radius: 26px 26px 0 0;
+  transform: translateY(100%);
+  transition: transform 0.36s cubic-bezier(.32,.72,0,1);
+  max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 -8px 44px rgba(26,39,68,.22);
+  padding-bottom: calc(16px + var(--sheet-safe));
+}
+#sheet.show { transform: translateY(0); }
+.sheet-handle {
+  width: 42px; height: 4px; border-radius: 2px;
+  background: var(--sand); margin: 14px auto 0;
+}
+.sc { padding: 14px 20px 8px; }
+
+/* ──────────── TOILET DETAIL ──────────── */
+.t-name {
+  font-family: 'Shippori Mincho B1', serif;
+  font-size: 22px; font-weight: 800; color: var(--indigo);
+  line-height: 1.3; margin: 6px 0 10px;
+}
+.t-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tag {
+  padding: 4px 11px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+}
+.tag.t1 { background:#EBF7EF; color:var(--moss); }
+.tag.t2 { background:#FEF4E8; color:var(--amber); }
+.tag.t3 { background:#FEFBE8; color:var(--gold); }
+.tag.t4 { background:#FCECEB; color:var(--brick); }
+.tag.partner { background:#EFF4E8; color:var(--partner); }
+.tag.free { background:#EBF7EF; color:var(--moss); }
+.tag.paid { background:#F4F4F4; color:var(--text2); }
+
+.t-hours {
+  font-size: 13px; color: var(--text2);
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* ──────────── REVIEW CARD ──────────── */
+.rv-card {
+  background: #fff; border: 1.5px solid var(--sand2);
+  border-radius: var(--r-lg); padding: 16px;
+  margin-bottom: 16px;
+}
+.rv-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.rv-label { font-size: 11px; font-weight: 700; color: var(--text3); letter-spacing: 0.07em; }
+.rv-count { font-size: 11px; color: var(--text3); }
+.rv-items { display: flex; gap: 8px; }
+.rv-item {
+  flex: 1; background: var(--cream); border-radius: 12px;
+  padding: 12px 6px; text-align: center;
+}
+.rv-icon { font-size: 22px; line-height: 1; }
+.rv-name { font-size: 10px; color: var(--text2); margin: 4px 0 2px; }
+.rv-pct {
+  font-size: 17px; font-weight: 700; color: var(--text3);
+}
+.rv-pct.hi { color: var(--moss); }
+.rv-pct.lo { color: var(--brick); }
+.rv-none { font-size: 12px; color: var(--text3); text-align: center; padding: 8px 0; }
+
+/* ──────────── ACTION BTNS ──────────── */
+.a-row { display: flex; gap: 10px; }
+.a-primary {
+  flex: 1; padding: 15px 10px;
+  background: var(--vermillion); color: white; border: none;
+  border-radius: var(--r); font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.a-primary.indigo { background: var(--indigo); }
+.a-primary:active { transform: scale(0.96); opacity: .9; }
+.a-sec {
+  padding: 15px 18px;
+  background: #fff; color: var(--indigo);
+  border: 1.5px solid var(--sand); border-radius: var(--r);
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: transform 0.15s;
+}
+.a-sec:active { transform: scale(0.96); }
+
+/* ──────────── REVIEW FLOW ──────────── */
+.rv-steps { display: flex; justify-content: center; gap: 7px; margin-bottom: 18px; }
+.rv-dot {
+  width: 7px; height: 7px; border-radius: 100px;
+  background: var(--sand); transition: all 0.22s;
+}
+.rv-dot.on { background: var(--indigo); width: 20px; }
+.rv-dot.dn { background: var(--moss); }
+
+.rv-q {
+  font-family: 'Shippori Mincho B1', serif;
+  font-size: 26px; font-weight: 800; color: var(--indigo);
+  text-align: center; line-height: 1.4; margin-bottom: 6px;
+}
+.rv-qsub { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 28px; }
+.rv-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rv-choice {
+  padding: 24px 10px; border-radius: 18px;
+  border: 2px solid var(--sand2); background: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 16px; font-weight: 700; color: var(--indigo);
+  cursor: pointer; transition: all 0.15s;
+}
+.rv-choice:active { transform: scale(0.95); }
+.rv-choice.yes:active { border-color: var(--moss); background: #EBF7EF; color: var(--moss); }
+.rv-choice.no:active  { border-color: var(--brick); background: #FCECEB; color: var(--brick); }
+.rv-choice .ce { font-size: 36px; }
+
+.rv-thanks { text-align: center; padding: 24px 0 8px; }
+.rv-thanks .te { font-size: 52px; margin-bottom: 14px; }
+.rv-thanks .tt {
+  font-family: 'Shippori Mincho B1', serif;
+  font-size: 24px; font-weight: 800; color: var(--indigo); margin-bottom: 6px;
+}
+.rv-thanks .ts { font-size: 14px; color: var(--text2); }
+
+/* ──────────── CITY PICKER ──────────── */
+#cpicker {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(26,39,68,.5);
+  backdrop-filter: blur(5px);
+  display: none; align-items: flex-end;
+}
+#cpicker.show { display: flex; }
+.cp-sheet {
+  width: 100%; background: var(--cream);
+  border-radius: 26px 26px 0 0;
+  padding: 14px 20px calc(32px + var(--sheet-safe));
+  box-shadow: 0 -8px 44px rgba(26,39,68,.22);
+  animation: su 0.32s cubic-bezier(.32,.72,0,1);
+}
+@keyframes su { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.cp-title {
+  font-family: 'Shippori Mincho B1', serif;
+  font-size: 18px; font-weight: 800; color: var(--indigo);
+  text-align: center; margin: 8px 0 18px;
+}
+.cp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cp-item {
+  padding: 16px 10px; border-radius: var(--r);
+  background: #fff; border: 1.5px solid var(--sand2);
+  text-align: center; cursor: pointer; transition: all 0.15s;
+}
+.cp-item:active { transform: scale(0.95); }
+.cp-item.on { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+.cp-item .cf { font-size: 24px; margin-bottom: 5px; }
+.cp-item .cl { font-size: 13px; font-weight: 700; }
+.cp-item .cs { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.cp-item.on .cs { color: rgba(255,255,255,.6); }
+
+/* ──────────── MARKERS ──────────── */
+.mk {
+  position: relative;
+  width: 30px; height: 30px;
+}
+.mk-body {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 10px rgba(0,0,0,.28);
+  display: flex; align-items: center; justify-content: center;
+}
+.mk-body.t1 { background: var(--moss); }
+.mk-body.t2 { background: var(--amber); }
+.mk-body.t3 { background: var(--gold); }
+.mk-body.t4 { background: var(--brick); }
+.mk-body.tp { background: var(--partner); border-color: #B5D87A; }
+.mk-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--vermillion); color: white;
+  border: 1.5px solid white; border-radius: 100px;
+  font-size: 8px; font-weight: 700;
+  min-width: 15px; height: 15px;
+  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+}
+
+/* ──────────── DIVIDER ──────────── */
+.div { height: 1px; background: var(--sand2); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="ld-logo">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+      <circle cx="22" cy="28" r="13" fill="white" opacity=".92"/>
+      <ellipse cx="22" cy="16" rx="7" ry="8" fill="white" opacity=".92"/>
+      <ellipse cx="22" cy="7" rx="3.5" ry="4.5" fill="white" opacity=".7"/>
+    </svg>
+  </div>
+  <div class="ld-title">Oasis</div>
+  <div class="ld-sub" id="ld-msg">読み込み中...</div>
+</div>
+
+<!-- Logo -->
+<div id="logo">
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="18" r="9" fill="white" opacity=".92"/>
+    <ellipse cx="14" cy="10" rx="5" ry="5.5" fill="white" opacity=".92"/>
+    <ellipse cx="14" cy="4" rx="2.5" ry="3" fill="white" opacity=".7"/>
+  </svg>
+</div>
+
+<!-- City HUD -->
+<div id="city-hud" onclick="openPicker()">
+  <span id="hud-flag">🗽</span>
+  <span id="hud-name">Manhattan</span>
+  <span class="hud-chevron">▼</span>
+</div>
+
+<!-- Controls -->
+<div id="controls">
+  <button class="ctrl" id="loc-btn" onclick="goToMe()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A2744" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+      <circle cx="12" cy="12" r="7" stroke-dasharray="3.5 2.5" stroke-width="1.5"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Filter bar -->
+<div id="filter-bar">
+  <button class="fchip on" data-f="all" onclick="setFilter('all')"><span id="f-all">すべて</span></button>
+  <button class="fchip"    data-f="pub" onclick="setFilter('pub')"><span id="f-pub">🌿 公衆トイレ</span></button>
+  <button class="fchip"    data-f="ibd" onclick="setFilter('ibd')"><span id="f-ibd">💚 IBDパートナー</span></button>
+  <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
+</div>
+
+<!-- Overlay -->
+<div id="overlay" onclick="closeSheet()"></div>
+
+<!-- Sheet -->
+<div id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sc" id="sc"></div>
+</div>
+
+<!-- City Picker -->
+<div id="cpicker" onclick="bgPicker(event)">
+  <div class="cp-sheet">
+    <div class="sheet-handle"></div>
+    <div class="cp-title" id="cp-title">都市を選ぶ</div>
+    <div class="cp-grid" id="cp-grid"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ═══════════════════════════════════
+   LANGUAGE
+═══════════════════════════════════ */
+const LANG = navigator.language.startsWith('ja') ? 'ja' : 'en';
+const L10N = {
+  ja: {
+    loading:'読み込み中...', loadCity:'地図を準備しています...',
+    all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
+    pickCity:'都市を選ぶ',
+    tagFree:'無料', tagPaid:'有料', tagPartner:'IBDパートナー',
+    t1:'横綱', t2:'大関', t3:'関脇', t4:'前頭',
+    hours:'営業時間', unknown:'不明',
+    rvTitle:'患者レビュー', rvNone:'まだレビューがありません',
+    access:'入れた', priv:'個室OK', paper:'紙あり',
+    rvBtn:'レビューする', navBtn:'ナビ',
+    q1:'入れましたか？', q1s:'購入や鍵なしで入れた',
+    q2:'個室でしたか？', q2s:'一人で鍵をかけて使えた',
+    q3:'紙がありましたか？', q3s:'トイレットペーパーがあった',
+    yes:'はい ✓', no:'いいえ ✗',
+    thanks:'ありがとう', thanksSub:'次の患者を救いました',
+    reviews: n => `${n}件のレビュー`,
+  },
+  en: {
+    loading:'Loading...', loadCity:'Preparing map...',
+    all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
+    pickCity:'Choose a city',
+    tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
+    t1:'Yokozuna', t2:'Ozeki', t3:'Sekiwake', t4:'Maegashira',
+    hours:'Hours', unknown:'Unknown',
+    rvTitle:'Patient Reviews', rvNone:'No reviews yet',
+    access:'Got in', priv:'Private', paper:'Paper',
+    rvBtn:'Review', navBtn:'Directions',
+    q1:'Could you get in?', q1s:'No purchase or key needed',
+    q2:'Was it private?',   q2s:'Single stall, could lock the door',
+    q3:'Was there paper?',  q3s:'Toilet paper was available',
+    yes:'Yes ✓', no:'No ✗',
+    thanks:'Thank you', thanksSub:'You helped the next patient',
+    reviews: n => `${n} reviews`,
+  }
+};
+const T = L10N[LANG];
+const tr = k => T[k] || k;
+
+/* ═══════════════════════════════════
+   CITIES
+═══════════════════════════════════ */
+const CITIES = {
+  manhattan: { ja:'マンハッタン', en:'Manhattan',  flag:'🗽', c:[40.754,-74.003], z:13, bbox:{n:40.882,s:40.680,e:-73.907,w:-74.047} },
+  tokyo:     { ja:'東京',         en:'Tokyo',       flag:'🗼', c:[35.690,139.760], z:12, bbox:{n:35.820,s:35.530,e:139.920,w:139.580} },
+  osaka:     { ja:'大阪',         en:'Osaka',       flag:'🐙', c:[34.693,135.502], z:13, bbox:{n:34.780,s:34.590,e:135.620,w:135.380} },
+  kobe:      { ja:'神戸',         en:'Kobe',        flag:'⚓', c:[34.690,135.195], z:13, bbox:{n:34.760,s:34.610,e:135.310,w:135.070} },
+  london:    { ja:'ロンドン',     en:'London',      flag:'🎡', c:[51.505,-0.090],  z:13, bbox:{n:51.670,s:51.340,e:0.010,w:-0.250} },
+  sydney:    { ja:'シドニー',     en:'Sydney',      flag:'🦘', c:[-33.868,151.209],z:13, bbox:{n:-33.730,s:-34.000,e:151.320,w:151.100} },
+  melbourne: { ja:'メルボルン',   en:'Melbourne',   flag:'☕', c:[-37.813,144.963],z:13, bbox:{n:-37.700,s:-37.920,e:145.080,w:144.840} },
+  brisbane:  { ja:'ブリスベン',   en:'Brisbane',    flag:'🐨', c:[-27.467,153.028],z:13, bbox:{n:-27.360,s:-27.580,e:153.130,w:152.930} },
+};
+const cityLabel = k => CITIES[k][LANG] || CITIES[k].en;
+
+/* ═══════════════════════════════════
+   FIREBASE
+═══════════════════════════════════ */
+firebase.initializeApp({
+  apiKey: 'AIzaSyDXQabNFmpISVQ4O_yCP6dTyx-UC_uGQLw',
+  authDomain: 'oasis-bde20.firebaseapp.com',
+  projectId: 'oasis-bde20'
+});
+const db = firebase.firestore();
+
+/* ═══════════════════════════════════
+   STATE
+═══════════════════════════════════ */
+let map, activeCity = 'manhattan';
+let allMarkers = [], allToilets = [];
+let userLat = null, userLng = null;
+let activeFilter = 'all';
+let currentToilet = null;
+let reviewStep = 0, reviewData = {};
+let userDot = null;
+const CACHE_MS = 86400000;
+
+/* ═══════════════════════════════════
+   MAP
+═══════════════════════════════════ */
+function initMap() {
+  map = L.map('map', {
+    center: CITIES.manhattan.c,
+    zoom:   CITIES.manhattan.z,
+    zoomControl: false,
+    attributionControl: false,
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19, subdomains: 'abcd',
+  }).addTo(map);
+}
+
+/* ═══════════════════════════════════
+   MARKERS
+═══════════════════════════════════ */
+function mkClass(t) {
+  if (t.isPartner) return 'tp';
+  return ['','t1','t2','t3','t4'][t.tier] || 't4';
+}
+
+function makeIcon(toilet, reviewCount) {
+  const cls = mkClass(toilet);
+  const badge = reviewCount > 0
+    ? `<div class="mk-badge">${reviewCount > 99 ? '99+' : reviewCount}</div>` : '';
+  return L.divIcon({
+    html: `<div class="mk"><div class="mk-body ${cls}"></div>${badge}</div>`,
+    className: '', iconSize: [30,30], iconAnchor: [15,15]
+  });
+}
+
+function addMarker(toilet, reviewCount) {
+  const m = L.marker([toilet.lat, toilet.lng], { icon: makeIcon(toilet, reviewCount) });
+  m.on('click', () => openDetail(toilet));
+  m.addTo(map);
+  allMarkers.push({ m, toilet });
+}
+
+function clearMarkers() {
+  allMarkers.forEach(({m}) => map.removeLayer(m));
+  allMarkers = [];
+}
+
+function applyFilter(f) {
+  activeFilter = f || activeFilter;
+  allMarkers.forEach(({m, toilet}) => {
+    let show = true;
+    if (activeFilter === 'pub')  show = toilet.cat === 'Public';
+    if (activeFilter === 'ibd')  show = !!toilet.isPartner;
+    if (activeFilter === 'free') show = !!toilet.free;
+    if (show) m.addTo(map); else map.removeLayer(m);
+  });
+}
+
+/* ═══════════════════════════════════
+   DATA LOAD
+═══════════════════════════════════ */
+async function loadCity(cityKey) {
+  ldmsg(tr('loadCity'));
+  const ck = `oasis_v3_${cityKey}`;
+  try {
+    const raw = localStorage.getItem(ck);
+    if (raw) {
+      const {ts, d} = JSON.parse(raw);
+      if (Date.now() - ts < CACHE_MS) { renderCity(d); hideLoading(); return; }
+    }
+  } catch(e) {}
+
+  try {
+    // Load chunks: pattern {cityKey}_chunk_{n}
+    const snap = await db.collection('toilets').get();
+    let toilets = [];
+    snap.docs.forEach(doc => {
+      if (doc.id.startsWith(cityKey + '_chunk_')) {
+        const items = doc.data().items || doc.data().data || [];
+        toilets = toilets.concat(items);
+      }
+    });
+    // Fallback: single doc
+    if (!toilets.length) {
+      const single = await db.collection('toilets').doc(cityKey).get();
+      if (single.exists) {
+        const data = single.data();
+        toilets = data.items || data.data || [];
+      }
+    }
+    localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
+    renderCity(toilets);
+  } catch(e) {
+    console.error('Firestore error', e);
+  }
+  hideLoading();
+}
+
+function renderCity(toilets) {
+  clearMarkers();
+  allToilets = toilets;
+  toilets.forEach(t => addMarker(t, 0)); // review counts loaded separately on tap
+  applyFilter();
+  updateHud(activeCity);
+}
+
+/* ═══════════════════════════════════
+   CITY SELECT
+═══════════════════════════════════ */
+async function selectCity(k) {
+  if (!CITIES[k]) return;
+  activeCity = k;
+  const c = CITIES[k];
+  map.flyTo(c.c, c.z, {duration: 0.9});
+  updateHud(k);
+  closePicker();
+  showLoading();
+  await loadCity(k);
+}
+
+function updateHud(k) {
+  const c = CITIES[k];
+  if (!c) return;
+  document.getElementById('hud-flag').textContent = c.flag;
+  document.getElementById('hud-name').textContent = cityLabel(k);
+  document.querySelectorAll('.cp-item').forEach(el => {
+    el.classList.toggle('on', el.dataset.k === k);
+  });
+}
+
+/* ═══════════════════════════════════
+   FILTER
+═══════════════════════════════════ */
+function setFilter(f) {
+  document.querySelectorAll('.fchip').forEach(c => c.classList.toggle('on', c.dataset.f === f));
+  applyFilter(f);
+}
+
+/* ═══════════════════════════════════
+   GEOLOCATION
+═══════════════════════════════════ */
+function goToMe() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude: lat, longitude: lng} = pos.coords;
+    userLat = lat; userLng = lng;
+    document.getElementById('loc-btn').classList.add('lit');
+    if (userDot) map.removeLayer(userDot);
+    userDot = L.circleMarker([lat, lng], {
+      radius: 9, fillColor: '#3B82F6', color: 'white',
+      weight: 3, fillOpacity: 1, pane: 'markerPane'
+    }).addTo(map);
+    const detected = detectCity(lat, lng);
+    if (detected && detected !== activeCity) {
+      activeCity = detected;
+      showLoading();
+      map.setView([lat, lng], 16);
+      setTimeout(() => map.invalidateSize(), 300);
+      loadCity(detected);
+    } else {
+      map.setView([lat, lng], 16);
+      setTimeout(() => map.invalidateSize(), 300);
+    }
+  }, () => {}, {enableHighAccuracy: true, timeout: 10000});
+}
+
+function detectCity(lat, lng) {
+  for (const [k, c] of Object.entries(CITIES)) {
+    const b = c.bbox, p = 0.05;
+    if (lat >= b.s-p && lat <= b.n+p && lng >= b.w-p && lng <= b.e+p) return k;
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════
+   SHEET
+═══════════════════════════════════ */
+function openSheet(html) {
+  document.getElementById('sc').innerHTML = html;
+  document.getElementById('sheet').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+/* ═══════════════════════════════════
+   TOILET DETAIL
+═══════════════════════════════════ */
+async function openDetail(toilet) {
+  currentToilet = toilet;
+
+  // Tier badge
+  const tierMap = {1: tr('t1'), 2: tr('t2'), 3: tr('t3'), 4: tr('t4')};
+  const tierCls  = {1:'t1', 2:'t2', 3:'t3', 4:'t4'};
+  const tierTag  = toilet.isPartner
+    ? `<span class="tag partner">${tr('tagPartner')}</span>`
+    : `<span class="tag ${tierCls[toilet.tier] || 't4'}">${tierMap[toilet.tier] || '?'}</span>`;
+  const freeTag = toilet.free
+    ? `<span class="tag free">${tr('tagFree')}</span>`
+    : `<span class="tag paid">${tr('tagPaid')}</span>`;
+
+  // Load review summary
+  let rv = {total:0, access:0, priv:0, paper:0};
+  try {
+    const doc = await db.collection('reviewSummaries').doc(toilet.id).get();
+    if (doc.exists) rv = {...rv, ...doc.data()};
+  } catch(e) {}
+
+  const pct = (n) => rv.total > 0 ? `${Math.round(n/rv.total*100)}%` : '-';
+  const pcl = (n) => rv.total === 0 ? '' : (n/rv.total >= 0.65 ? 'hi' : (n/rv.total <= 0.35 ? 'lo' : ''));
+
+  const rvSection = rv.total === 0
+    ? `<div class="rv-none">${tr('rvNone')}</div>`
+    : `<div class="rv-items">
+        <div class="rv-item">
+          <div class="rv-icon">🚪</div>
+          <div class="rv-name">${tr('access')}</div>
+          <div class="rv-pct ${pcl(rv.access)}">${pct(rv.access)}</div>
+        </div>
+        <div class="rv-item">
+          <div class="rv-icon">🔒</div>
+          <div class="rv-name">${tr('priv')}</div>
+          <div class="rv-pct ${pcl(rv.priv)}">${pct(rv.priv)}</div>
+        </div>
+        <div class="rv-item">
+          <div class="rv-icon">🧻</div>
+          <div class="rv-name">${tr('paper')}</div>
+          <div class="rv-pct ${pcl(rv.paper)}">${pct(rv.paper)}</div>
+        </div>
+      </div>`;
+
+  openSheet(`
+    <div class="t-name">${toilet.name || (LANG==='ja' ? 'トイレ' : 'Restroom')}</div>
+    <div class="t-tags">${tierTag}${freeTag}</div>
+    ${toilet.hours ? `<div class="t-hours">🕐 ${toilet.hours}</div>` : ''}
+    <div class="rv-card">
+      <div class="rv-head">
+        <span class="rv-label">${tr('rvTitle').toUpperCase()}</span>
+        ${rv.total > 0 ? `<span class="rv-count">${T.reviews(rv.total)}</span>` : ''}
+      </div>
+      ${rvSection}
+    </div>
+    <div class="a-row">
+      <button class="a-primary" onclick="startReview()">${tr('rvBtn')}</button>
+      <button class="a-sec" onclick="nav(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
+    </div>
+  `);
+}
+
+function nav(lat, lng) {
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`, '_blank');
+}
+
+/* ═══════════════════════════════════
+   REVIEW FLOW
+═══════════════════════════════════ */
+const RV_STEPS  = ['access', 'priv', 'paper'];
+const RV_ICONS  = ['🚪', '🔒', '🧻'];
+const RV_Q_KEY  = ['q1', 'q2', 'q3'];
+const RV_SUB    = ['q1s','q2s','q3s'];
+
+function startReview() {
+  reviewStep = 0; reviewData = {};
+  renderReviewStep();
+}
+
+function renderReviewStep() {
+  const n = reviewStep;
+  const total = RV_STEPS.length;
+  if (n >= total) { submitReview(); return; }
+
+  const dots = RV_STEPS.map((_, i) => {
+    const cls = i < n ? 'dn' : (i === n ? 'on' : '');
+    return `<div class="rv-dot ${cls}"></div>`;
+  }).join('');
+
+  openSheet(`
+    <div class="rv-steps">${dots}</div>
+    <div class="rv-q">${RV_ICONS[n]} ${tr(RV_Q_KEY[n])}</div>
+    <div class="rv-qsub">${tr(RV_SUB[n])}</div>
+    <div class="rv-choices">
+      <button class="rv-choice yes" onclick="answer(true)">
+        <span class="ce">✅</span><span>${tr('yes')}</span>
+      </button>
+      <button class="rv-choice no" onclick="answer(false)">
+        <span class="ce">❌</span><span>${tr('no')}</span>
+      </button>
+    </div>
+  `);
+}
+
+function answer(val) {
+  reviewData[RV_STEPS[reviewStep]] = val;
+  reviewStep++;
+  renderReviewStep();
+}
+
+async function submitReview() {
+  openSheet(`
+    <div class="rv-thanks">
+      <div class="te">🙏</div>
+      <div class="tt">${tr('thanks')}</div>
+      <div class="ts">${tr('thanksSub')}</div>
+    </div>
+  `);
+  if (!currentToilet) return;
+  try {
+    await db.collection('reviews').add({
+      toiletId: currentToilet.id,
+      cityKey: activeCity,
+      access: !!reviewData.access,
+      priv:   !!reviewData.priv,
+      paper:  !!reviewData.paper,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    const ref = db.collection('reviewSummaries').doc(currentToilet.id);
+    await db.runTransaction(async tx => {
+      const doc = await tx.get(ref);
+      const inc = {
+        total:  1,
+        access: reviewData.access ? 1 : 0,
+        priv:   reviewData.priv   ? 1 : 0,
+        paper:  reviewData.paper  ? 1 : 0,
+      };
+      if (!doc.exists) { tx.set(ref, inc); }
+      else {
+        const d = doc.data();
+        tx.update(ref, {
+          total:  (d.total  || 0) + 1,
+          access: (d.access || 0) + inc.access,
+          priv:   (d.priv   || 0) + inc.priv,
+          paper:  (d.paper  || 0) + inc.paper,
+        });
+      }
+    });
+  } catch(e) { console.error('Review error', e); }
+  setTimeout(closeSheet, 2600);
+}
+
+/* ═══════════════════════════════════
+   CITY PICKER
+═══════════════════════════════════ */
+function openPicker() {
+  document.getElementById('cp-title').textContent = tr('pickCity');
+  const grid = document.getElementById('cp-grid');
+  grid.innerHTML = '';
+  Object.entries(CITIES).forEach(([k, c]) => {
+    const el = document.createElement('div');
+    el.className = 'cp-item' + (k === activeCity ? ' on' : '');
+    el.dataset.k = k;
+    el.innerHTML = `<div class="cf">${c.flag}</div><div class="cl">${cityLabel(k)}</div>`;
+    el.onclick = () => selectCity(k);
+    grid.appendChild(el);
+  });
+  document.getElementById('cpicker').classList.add('show');
+}
+function closePicker() { document.getElementById('cpicker').classList.remove('show'); }
+function bgPicker(e) { if (e.target === document.getElementById('cpicker')) closePicker(); }
+
+/* ═══════════════════════════════════
+   LOADING HELPERS
+═══════════════════════════════════ */
+function showLoading() { document.getElementById('loading').classList.remove('out'); }
+function hideLoading() { document.getElementById('loading').classList.add('out'); }
+function ldmsg(t)      { document.getElementById('ld-msg').textContent = t; }
+
+/* ═══════════════════════════════════
+   UPDATE UI STRINGS
+═══════════════════════════════════ */
+function applyLang() {
+  document.getElementById('f-all').textContent  = tr('all');
+  document.getElementById('f-pub').innerHTML    = tr('pub');
+  document.getElementById('f-ibd').innerHTML    = tr('ibd');
+  document.getElementById('f-free').innerHTML   = tr('free');
+  document.documentElement.lang = LANG;
+}
+
+/* ═══════════════════════════════════
+   INIT
+═══════════════════════════════════ */
+async function init() {
+  ldmsg(tr('loading'));
+  applyLang();
+  initMap();
+
+  // Attempt auto-locate
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const {latitude: lat, longitude: lng} = pos.coords;
+      userLat = lat; userLng = lng;
+      document.getElementById('loc-btn').classList.add('lit');
+      if (userDot) map.removeLayer(userDot);
+      userDot = L.circleMarker([lat, lng], {
+        radius: 9, fillColor: '#3B82F6', color: 'white',
+        weight: 3, fillOpacity: 1
+      }).addTo(map);
+      const detected = detectCity(lat, lng);
+      if (detected) { activeCity = detected; }
+      map.setView([lat, lng], 15);
+      setTimeout(() => map.invalidateSize(), 300);
+    }, () => {}, {enableHighAccuracy: true, timeout: 8000});
+  }
+
+  await loadCity(activeCity);
+  setTimeout(() => map.invalidateSize(), 150);
+}
+
+init();
+</script>
+</body>
+</html>
