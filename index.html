@@ -629,21 +629,12 @@ async function loadCity(cityKey) {
     let toilets = [];
     for (let i = 0; i < 10; i++) {
       try {
-        const snap = await db.collection('toilets').doc(`${cityKey}_chunk_${i}`).get();
+        const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
         if (snap.exists) {
-          const d = snap.data();
-          const arr = d.toilets || d.items || d.data || [];
+          const arr = snap.data().toilets || [];
           toilets = toilets.concat(arr);
-        } else { break; }
-      } catch(e) { break; }
-    }
-    // Fallback: single doc
-    if (!toilets.length) {
-      const single = await db.collection('toilets').doc(cityKey).get();
-      if (single.exists) {
-        const d = single.data();
-        toilets = d.toilets || d.items || d.data || [];
-      }
+        }
+      } catch(e) { /* skip missing chunk */ }
     }
     if (toilets.length) {
       localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
