@@ -543,6 +543,11 @@ firebase.initializeApp({
 });
 const db = firebase.firestore();
 
+// 起動時テスト
+db.collection('cities').doc('tokyo').collection('chunks').doc('0').get()
+  .then(d => console.log('Firestore OK, 件数:', d.data()?.toilets?.length))
+  .catch(e => console.error('Firestore NG:', e.code, e.message));
+
 /* ═══════════════════════════════════
    STATE
 ═══════════════════════════════════ */
