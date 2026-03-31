@@ -623,37 +623,42 @@ function applyFilter(f) {
    DATA LOAD
 ═══════════════════════════════════ */
 async function loadCity(cityKey) {
+  console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
   const ck = `oasis_v4_${cityKey}`;
   try {
     const raw = localStorage.getItem(ck);
     if (raw) {
       const {ts, d} = JSON.parse(raw);
-      if (Date.now() - ts < CACHE_MS) { renderCity(d); return; }
+      if (Date.now() - ts < CACHE_MS) {
+        console.log('[LOAD] cache hit', d.length);
+        renderCity(d);
+        hideLoading();
+        return;
+      }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('[LOAD] cache err', e); }
 
-  try {
-    let toilets = [];
-    for (let i = 0; i < 10; i++) {
-      try {
-        const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
-        if (snap.exists) {
-          const arr = snap.data().toilets || [];
-          toilets = toilets.concat(arr);
-        }
-      } catch(e) { /* skip missing chunk */ }
+  let toilets = [];
+  for (let i = 0; i < 10; i++) {
+    try {
+      const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
+      console.log(`[LOAD] chunk ${i} exists:`, snap.exists);
+      if (snap.exists) {
+        const arr = snap.data().toilets || [];
+        console.log(`[LOAD] chunk ${i} items:`, arr.length);
+        toilets = toilets.concat(arr);
+      }
+    } catch(e) {
+      console.error(`[LOAD] chunk ${i} error:`, e.code, e.message);
     }
-    if (toilets.length) {
-      localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
-    }
-    console.log('[DEBUG] toilets fetched:', toilets.length, 'cityKey:', cityKey);
-    renderCity(toilets);
-  } catch(e) {
-    console.error('Firestore error', e);
-  } finally {
-    hideLoading();
   }
+  console.log('[LOAD] total', toilets.length);
+  if (toilets.length) {
+    try { localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets})); } catch(e) {}
+  }
+  renderCity(toilets);
+  hideLoading();
 }
 
 function renderCity(toilets) {
