@@ -7,6 +7,9 @@
 <meta name="theme-color" content="#1A2744">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho+B1:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -644,6 +647,7 @@ async function loadCity(cityKey) {
     if (toilets.length) {
       localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets}));
     }
+    console.log('[DEBUG] toilets fetched:', toilets.length, 'cityKey:', cityKey);
     renderCity(toilets);
   } catch(e) {
     console.error('Firestore error', e);
