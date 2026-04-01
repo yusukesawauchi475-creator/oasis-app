@@ -318,7 +318,7 @@ html, body { height: 100%; overflow: hidden;
 .mk-dot.t1 { background: radial-gradient(circle at 35% 30%, #5BE89A, #1FA855); }
 .mk-dot.t2 { background: radial-gradient(circle at 35% 30%, #FDCA6E, #E8870A); opacity: 0.85; }
 .mk-dot.t3 { background: radial-gradient(circle at 35% 30%, #FDE96E, #C9A80A); opacity: 0.55; }
-.mk-dot.t4 { background: radial-gradient(circle at 35% 30%, #F28B82, #C0392B); opacity: 0.25; }
+.mk-dot.t4 { background: radial-gradient(circle at 35% 30%, #F28B82, #C0392B); opacity: 0.45; }
 .mk-dot.tp { background: radial-gradient(circle at 35% 30%, #FFD700, #B8860B); }
 .cluster-icon {
   display: flex; align-items: center; justify-content: center;
@@ -482,9 +482,9 @@ const L10N = {
     all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
     pickCity:'都市を選ぶ',
     tagFree:'無料', tagPaid:'有料', tagPartner:'IBDパートナー',
-    t1:'横綱', t2:'大関', t3:'関脇', t4:'前頭',
+    t1:'公衆トイレ', t2:'コンビニ/商業施設', t3:'スタッフに確認', t4:'未確認',
     hours:'営業時間', unknown:'不明',
-    rvTitle:'患者レビュー', rvNone:'まだレビューがありません',
+    rvTitle:'レビュー', rvNone:'まだレビューがありません',
     access:'入れた', priv:'個室OK', paper:'紙あり',
     rvBtn:'レビューする', navBtn:'ナビ', reportBtn:'報告',
     q1:'入れましたか？', q1s:'購入や鍵なしで入れた',
@@ -493,6 +493,10 @@ const L10N = {
     yes:'はい ✓', no:'いいえ ✗',
     thanks:'ありがとう', thanksSub:'次の患者を救いました',
     reviews: n => `${n}件のレビュー`,
+    askPhrase:'お手洗いをお借りできますか？', copied:'コピーしました', copyBtn:'コピー',
+    emptyState:'この周辺にデータがありません。ズームアウトして探してください。',
+    walkMin: n => `徒歩${n}分`,
+    restroom:'トイレ',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
@@ -501,7 +505,7 @@ const L10N = {
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
     t1:'Public', t2:'Convenience', t3:'Ask Staff', t4:'Unverified',
     hours:'Hours', unknown:'Unknown',
-    rvTitle:'Patient Reviews', rvNone:'No reviews yet',
+    rvTitle:'Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
     rvBtn:'Review', navBtn:'Directions', reportBtn:'Report',
     q1:'Could you get in?', q1s:'No purchase or key needed',
@@ -510,6 +514,10 @@ const L10N = {
     yes:'Yes ✓', no:'No ✗',
     thanks:'Thank you', thanksSub:'You helped the next patient',
     reviews: n => `${n} reviews`,
+    askPhrase:'May I use the restroom?', copied:'Copied!', copyBtn:'Copy',
+    emptyState:'No data in this area. Try zooming out.',
+    walkMin: n => `${n} min walk`,
+    restroom:'Restroom',
   }
 };
 const T = L10N[LANG];
@@ -738,14 +746,30 @@ async function loadCity(cityKey) {
 
 function renderCity(toilets) {
   clearMarkers();
+  removeEmptyState();
   allToilets = toilets;
   const scored = scoreToilets(toilets);
   console.log('[RENDER] total:', toilets.length, 'scored:', scored.length, 'zoom:', map?.getZoom());
   scored.forEach(t => addMarker(t));
   console.log('[RENDER] allMarkers created:', allMarkers.length);
+  if (scored.length === 0) showEmptyState();
   applyFilter();
   updateHud(activeCity);
   renderNearby();
+}
+
+let _emptyEl = null;
+function showEmptyState() {
+  removeEmptyState();
+  const div = document.createElement('div');
+  div.id = 'empty-state';
+  div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:800;background:rgba(255,255,255,.92);padding:20px 28px;border-radius:16px;text-align:center;font-size:14px;color:var(--text2);box-shadow:0 2px 16px rgba(0,0,0,.12);max-width:280px';
+  div.textContent = tr('emptyState');
+  document.body.appendChild(div);
+  _emptyEl = div;
+}
+function removeEmptyState() {
+  if (_emptyEl) { _emptyEl.remove(); _emptyEl = null; }
 }
 
 /* ═══════════════════════════════════
@@ -760,7 +784,8 @@ function distMeters(lat1, lng1, lat2, lng2) {
 }
 
 function fmtDist(m) {
-  return m < 1000 ? `${Math.round(m)}m` : `${(m/1000).toFixed(1)}km`;
+  const min = Math.ceil(m / 80);
+  return T.walkMin(min);
 }
 
 const TIER_EMOJI = {1:'🟢', 2:'🟠', 3:'🟡', 4:'🔴'};
@@ -782,13 +807,13 @@ function renderNearby() {
   list.innerHTML = sorted.map((t, i) => {
     const emoji = t.isPartner ? '💚' : (TIER_EMOJI[t.tier] || '🔴');
     const label = t.isPartner ? tr('tagPartner') : (tierLabel[t.tier] || '');
-    const freeTag = t.free ? (LANG==='ja' ? '無料' : 'Free') : '';
+    const freeTag = t.free ? tr('tagFree') : '';
     const meta = [label, freeTag].filter(Boolean).join(' · ');
     return `<div class="nb-card" onclick="openDetail(allToilets.find(x=>x.id==='${t.id.replace(/'/g,"\\'")}'))" data-i="${i}">
       <span class="nb-tier">${emoji}</span>
       <span class="nb-dist">${fmtDist(t.dist)}</span>
       <div class="nb-info">
-        <div class="nb-name">${t.name || (LANG==='ja' ? 'トイレ' : 'Restroom')}</div>
+        <div class="nb-name">${t.name || tr('restroom')}</div>
         <div class="nb-meta">${meta}</div>
       </div>
       <button class="nb-nav" onclick="event.stopPropagation();nav(${t.lat},${t.lng})">▶</button>
@@ -931,10 +956,17 @@ async function openDetail(toilet) {
         </div>
       </div>`;
 
+  const phraseCard = toilet.tier === 3 && !toilet.isPartner
+    ? `<div class="phrase-card" style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:600">${tr('askPhrase')}</span>
+        <button onclick="navigator.clipboard.writeText('${tr('askPhrase')}');this.textContent='${tr('copied')}'" style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">${tr('copyBtn')}</button>
+      </div>` : '';
+
   openSheet(`
-    <div class="t-name">${toilet.name || (LANG==='ja' ? 'トイレ' : 'Restroom')}</div>
+    <div class="t-name">${toilet.name || tr('restroom')}</div>
     <div class="t-tags">${tierTag}${freeTag}</div>
     ${toilet.hours ? `<div class="t-hours">🕐 ${toilet.hours}</div>` : ''}
+    ${phraseCard}
     <div class="rv-card">
       <div class="rv-head">
         <span class="rv-label">${tr('rvTitle').toUpperCase()}</span>
