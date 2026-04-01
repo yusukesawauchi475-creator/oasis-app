@@ -40,6 +40,7 @@ html, body { height: 100%; overflow: hidden;
 /* ──────────── MAP ──────────── */
 #map {
   position: fixed; inset: 0;
+  height: 100dvh; height: 100vh;
   filter: sepia(0.12) saturate(0.85) brightness(1.04);
 }
 .leaflet-control-zoom,
@@ -1066,9 +1067,12 @@ async function init() {
         weight: 3, fillOpacity: 1
       }).addTo(map);
       const detected = detectCity(lat, lng);
-      if (detected) { activeCity = detected; }
-      map.setView([lat, lng], 15);
-      setTimeout(() => map.invalidateSize(), 300);
+      if (detected && detected !== activeCity) {
+        activeCity = detected;
+        loadCity(detected);
+      }
+      map.flyTo([lat, lng], 15, {duration: 1.2});
+      setTimeout(() => { map.invalidateSize(); renderNearby(); }, 400);
     }, () => {}, {enableHighAccuracy: true, timeout: 8000});
   }
 
