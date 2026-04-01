@@ -309,28 +309,12 @@ html, body { height: 100%; overflow: hidden;
 .cp-item.on .cs { color: rgba(255,255,255,.6); }
 
 /* ──────────── MARKERS ──────────── */
-.mk {
-  position: relative;
-  width: 36px; height: 36px;
-}
-.mk-body {
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid white;
-  box-shadow: 0 2px 10px rgba(0,0,0,.28);
+.mk-bubble { filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.cluster-icon {
   display: flex; align-items: center; justify-content: center;
-}
-.mk-body.t1 { background: #2ECC71; }
-.mk-body.t2 { background: #F39C12; }
-.mk-body.t3 { background: #F1C40F; }
-.mk-body.t4 { background: #E74C3C; }
-.mk-body.tp { background: #27AE60; border-color: #B5D87A; }
-.mk-badge {
-  position: absolute; top: -4px; right: -4px;
-  background: var(--vermillion); color: white;
-  border: 1.5px solid white; border-radius: 100px;
-  font-size: 8px; font-weight: 700;
-  min-width: 15px; height: 15px;
-  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+  border-radius: 50%; border: 2px solid white;
+  font-size: 11px; font-weight: 700; color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
 }
 
 /* ──────────── LEGEND BUTTON ──────────── */
@@ -577,47 +561,130 @@ function initMap() {
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 19, subdomains: 'abcd',
   }).addTo(map);
+  map.on('zoomend', () => refreshZoom());
 }
 
 /* ═══════════════════════════════════
    MARKERS
 ═══════════════════════════════════ */
-function mkClass(t) {
+const TIER_WEIGHT = {1:4, 2:3, 3:2, 4:1};
+const TIER_COLORS = {
+  t1: {top:'#5BE89A', bot:'#1FA855', op:1.0},
+  t2: {top:'#FDCA6E', bot:'#E8870A', op:0.85},
+  t3: {top:'#FDE96E', bot:'#C9A80A', op:0.55},
+  t4: {top:'#F28B82', bot:'#C0392B', op:0.25},
+  tp: {top:'#FFD700', bot:'#B8860B', op:1.0},
+};
+
+function tierKey(t) {
   if (t.isPartner) return 'tp';
   return ['','t1','t2','t3','t4'][t.tier] || 't4';
 }
 
-function makeIcon(toilet, reviewCount) {
-  const cls = mkClass(toilet);
-  const badge = reviewCount > 0
-    ? `<div class="mk-badge">${reviewCount > 99 ? '99+' : reviewCount}</div>` : '';
+function bubbleSvg(tk) {
+  const c = TIER_COLORS[tk];
+  return `<svg class="mk-bubble" width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" style="opacity:${c.op}">
+    <defs><radialGradient id="g-${tk}" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="${c.top}"/>
+      <stop offset="100%" stop-color="${c.bot}"/>
+    </radialGradient></defs>
+    <circle cx="18" cy="18" r="15" fill="url(#g-${tk})" stroke="white" stroke-width="2.5"/>
+    <ellipse cx="14" cy="13" rx="5" ry="3.5" fill="white" opacity="0.35"/>
+  </svg>`;
+}
+
+function makeIcon(toilet) {
+  const tk = tierKey(toilet);
   return L.divIcon({
-    html: `<div class="mk"><div class="mk-body ${cls}"></div>${badge}</div>`,
+    html: bubbleSvg(tk),
     className: '', iconSize: [36,36], iconAnchor: [18,18]
   });
 }
 
-function addMarker(toilet, reviewCount) {
-  const m = L.marker([toilet.lat, toilet.lng], { icon: makeIcon(toilet, reviewCount) });
+function clusterIcon(count, bestTier) {
+  const tk = bestTier || 't4';
+  const c = TIER_COLORS[tk];
+  const sz = count > 50 ? 44 : (count > 20 ? 38 : 32);
+  return L.divIcon({
+    html: `<div class="cluster-icon" style="width:${sz}px;height:${sz}px;background:${c.bot}">${count}</div>`,
+    className: '', iconSize: [sz,sz], iconAnchor: [sz/2,sz/2]
+  });
+}
+
+function scoreToilets(toilets) {
+  if (userLat == null || userLng == null) return toilets.slice(0, 30);
+  return toilets
+    .map(t => {
+      const d = Math.hypot((t.lat - userLat)*111320, (t.lng - userLng)*111320*Math.cos(userLat*Math.PI/180));
+      const w = TIER_WEIGHT[t.tier] || 1;
+      return {...t, _score: d / w, _dist: d};
+    })
+    .sort((a,b) => a._score - b._score)
+    .slice(0, 30);
+}
+
+function addMarker(toilet) {
+  const m = L.marker([toilet.lat, toilet.lng], { icon: makeIcon(toilet) });
   m.on('click', () => openDetail(toilet));
-  m.addTo(map);
-  allMarkers.push({ m, toilet });
+  allMarkers.push({ m, toilet, onMap: false });
 }
 
 function clearMarkers() {
   allMarkers.forEach(({m}) => map.removeLayer(m));
   allMarkers = [];
+  clusterMarkers.forEach(m => map.removeLayer(m));
+  clusterMarkers = [];
 }
+
+let clusterMarkers = [];
 
 function applyFilter(f) {
   activeFilter = f || activeFilter;
-  allMarkers.forEach(({m, toilet}) => {
-    let show = true;
-    if (activeFilter === 'pub')  show = toilet.cat === 'Public';
-    if (activeFilter === 'ibd')  show = !!toilet.isPartner;
-    if (activeFilter === 'free') show = !!toilet.free;
-    if (show) m.addTo(map); else map.removeLayer(m);
+  refreshZoom();
+}
+
+function refreshZoom() {
+  const zoom = map ? map.getZoom() : 15;
+  // Remove all current
+  allMarkers.forEach(o => { if (o.onMap) { map.removeLayer(o.m); o.onMap = false; } });
+  clusterMarkers.forEach(m => map.removeLayer(m));
+  clusterMarkers = [];
+
+  // Filter
+  let visible = allMarkers.filter(({toilet}) => {
+    if (activeFilter === 'pub')  return toilet.cat === 'Public';
+    if (activeFilter === 'ibd')  return !!toilet.isPartner;
+    if (activeFilter === 'free') return !!toilet.free;
+    return true;
   });
+
+  if (zoom >= 14) {
+    // Individual bubbles
+    visible.forEach(o => { o.m.addTo(map); o.onMap = true; });
+  } else {
+    // Cluster mode
+    const grid = {};
+    const cellSize = zoom <= 10 ? 0.5 : (zoom <= 12 ? 0.2 : 0.1);
+    visible.forEach(({toilet}) => {
+      const gx = Math.floor(toilet.lng / cellSize);
+      const gy = Math.floor(toilet.lat / cellSize);
+      const key = `${gx}_${gy}`;
+      if (!grid[key]) grid[key] = {lats:[], lngs:[], count:0, bestTier:'t4', tierRank:99};
+      grid[key].lats.push(toilet.lat);
+      grid[key].lngs.push(toilet.lng);
+      grid[key].count++;
+      const tk = tierKey(toilet);
+      const rank = tk==='tp'?0 : tk==='t1'?1 : tk==='t2'?2 : tk==='t3'?3 : 4;
+      if (rank < grid[key].tierRank) { grid[key].tierRank = rank; grid[key].bestTier = tk; }
+    });
+    Object.values(grid).forEach(g => {
+      const lat = g.lats.reduce((a,b)=>a+b,0) / g.count;
+      const lng = g.lngs.reduce((a,b)=>a+b,0) / g.count;
+      const cm = L.marker([lat, lng], { icon: clusterIcon(g.count, g.bestTier) });
+      cm.addTo(map);
+      clusterMarkers.push(cm);
+    });
+  }
 }
 
 /* ═══════════════════════════════════
@@ -664,14 +731,9 @@ async function loadCity(cityKey) {
 
 function renderCity(toilets) {
   clearMarkers();
-  if (userLat != null && userLng != null) {
-    toilets.sort((a, b) =>
-      Math.hypot(a.lat - userLat, a.lng - userLng) -
-      Math.hypot(b.lat - userLat, b.lng - userLng)
-    );
-  }
   allToilets = toilets;
-  toilets.forEach(t => addMarker(t, 0));
+  const scored = scoreToilets(toilets);
+  scored.forEach(t => addMarker(t));
   applyFilter();
   updateHud(activeCity);
   renderNearby();
@@ -770,18 +832,18 @@ function goToMe() {
     document.getElementById('loc-btn').classList.add('lit');
     if (userDot) map.removeLayer(userDot);
     userDot = L.circleMarker([lat, lng], {
-      radius: 9, fillColor: '#3B82F6', color: 'white',
-      weight: 3, fillOpacity: 1, pane: 'markerPane'
+      radius: 4, fillColor: '#3B82F6', color: 'white',
+      weight: 1, fillOpacity: 1, pane: 'markerPane'
     }).addTo(map);
     const detected = detectCity(lat, lng);
     if (detected && detected !== activeCity) {
       activeCity = detected;
       showLoading();
-      map.setView([lat, lng], 16);
+      map.flyTo([lat, lng], 15, {duration: 1.2});
       setTimeout(() => map.invalidateSize(), 300);
       loadCity(detected);
     } else {
-      map.setView([lat, lng], 16);
+      map.flyTo([lat, lng], 15, {duration: 1.2});
       setTimeout(() => map.invalidateSize(), 300);
     }
   }, () => {}, {enableHighAccuracy: true, timeout: 10000});
@@ -1063,8 +1125,8 @@ async function init() {
       document.getElementById('loc-btn').classList.add('lit');
       if (userDot) map.removeLayer(userDot);
       userDot = L.circleMarker([lat, lng], {
-        radius: 9, fillColor: '#3B82F6', color: 'white',
-        weight: 3, fillOpacity: 1
+        radius: 4, fillColor: '#3B82F6', color: 'white',
+        weight: 1, fillOpacity: 1
       }).addTo(map);
       const detected = detectCity(lat, lng);
       if (detected && detected !== activeCity) {
