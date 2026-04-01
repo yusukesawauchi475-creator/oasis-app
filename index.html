@@ -123,7 +123,7 @@ html, body { height: 100%; overflow: hidden;
   overflow-x: auto; scrollbar-width: none;
   transition: bottom 0.3s;
 }
-#nearby.show ~ #filter-bar, body:has(#nearby.show) #filter-bar { bottom: calc(45vh + 8px); }
+#nearby.show ~ #filter-bar, body:has(#nearby.show) #filter-bar { bottom: calc(35vh + 8px); }
 #filter-bar::-webkit-scrollbar { display: none; }
 .fchip {
   flex-shrink: 0; padding: 9px 15px; border-radius: 100px;
@@ -342,16 +342,15 @@ html, body { height: 100%; overflow: hidden;
 /* ──────────── NEARBY LIST ──────────── */
 #nearby {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 790;
-  max-height: 45vh; overflow-y: auto;
+  max-height: 35vh; overflow-y: auto;
   background: var(--cream);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(26,39,68,.15);
   padding: 8px 14px calc(12px + var(--sheet-safe));
-  transform: translateY(100%);
+  transform: translateY(calc(100% - 48px));
   transition: transform 0.32s cubic-bezier(.32,.72,0,1);
-  display: none;
 }
-#nearby.show { display: block; transform: translateY(0); }
+#nearby.show { transform: translateY(0); }
 #nearby .nb-handle {
   width: 36px; height: 4px; border-radius: 2px;
   background: var(--sand); margin: 0 auto 8px;
@@ -444,7 +443,7 @@ html, body { height: 100%; overflow: hidden;
 
 <!-- Nearby List -->
 <div id="nearby">
-  <div class="nb-handle"></div>
+  <div class="nb-handle" onclick="document.getElementById('nearby').classList.toggle('show')"></div>
   <div id="nb-list"></div>
 </div>
 
@@ -487,7 +486,7 @@ const L10N = {
     hours:'営業時間', unknown:'不明',
     rvTitle:'患者レビュー', rvNone:'まだレビューがありません',
     access:'入れた', priv:'個室OK', paper:'紙あり',
-    rvBtn:'レビューする', navBtn:'ナビ',
+    rvBtn:'レビューする', navBtn:'ナビ', reportBtn:'報告',
     q1:'入れましたか？', q1s:'購入や鍵なしで入れた',
     q2:'個室でしたか？', q2s:'一人で鍵をかけて使えた',
     q3:'紙がありましたか？', q3s:'トイレットペーパーがあった',
@@ -504,7 +503,7 @@ const L10N = {
     hours:'Hours', unknown:'Unknown',
     rvTitle:'Patient Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
-    rvBtn:'Review', navBtn:'Directions',
+    rvBtn:'Review', navBtn:'Directions', reportBtn:'Report',
     q1:'Could you get in?', q1s:'No purchase or key needed',
     q2:'Was it private?',   q2s:'Single stall, could lock the door',
     q3:'Was there paper?',  q3s:'Toilet paper was available',
@@ -520,7 +519,7 @@ const tr = k => T[k] || k;
    CITIES
 ═══════════════════════════════════ */
 const CITIES = {
-  manhattan: { ja:'マンハッタン', en:'Manhattan',  flag:'🗽', c:[40.754,-74.003], z:13, bbox:{n:40.882,s:40.680,e:-73.907,w:-74.047} },
+  manhattan: { ja:'ニューヨーク', en:'New York',    flag:'🗽', c:[40.730,-73.950], z:12, bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080} },
   tokyo:     { ja:'東京',         en:'Tokyo',       flag:'🗼', c:[35.690,139.760], z:12, bbox:{n:35.820,s:35.530,e:139.920,w:139.580} },
   osaka:     { ja:'大阪',         en:'Osaka',       flag:'🐙', c:[34.693,135.502], z:13, bbox:{n:34.780,s:34.590,e:135.620,w:135.380} },
   kobe:      { ja:'神戸',         en:'Kobe',        flag:'⚓', c:[34.690,135.195], z:13, bbox:{n:34.760,s:34.610,e:135.310,w:135.070} },
@@ -528,6 +527,12 @@ const CITIES = {
   sydney:    { ja:'シドニー',     en:'Sydney',      flag:'🦘', c:[-33.868,151.209],z:13, bbox:{n:-33.730,s:-34.000,e:151.320,w:151.100} },
   melbourne: { ja:'メルボルン',   en:'Melbourne',   flag:'☕', c:[-37.813,144.963],z:13, bbox:{n:-37.700,s:-37.920,e:145.080,w:144.840} },
   brisbane:  { ja:'ブリスベン',   en:'Brisbane',    flag:'🐨', c:[-27.467,153.028],z:13, bbox:{n:-27.360,s:-27.580,e:153.130,w:152.930} },
+  fukuoka:   { ja:'福岡',         en:'Fukuoka',     flag:'🍜', c:[33.590,130.400], z:13, bbox:{n:33.640,s:33.540,e:130.460,w:130.330} },
+  sapporo:   { ja:'札幌',         en:'Sapporo',     flag:'🏔', c:[43.065,141.350], z:13, bbox:{n:43.110,s:43.020,e:141.400,w:141.300} },
+  nagoya:    { ja:'名古屋',       en:'Nagoya',      flag:'🏯', c:[35.170,136.920], z:13, bbox:{n:35.210,s:35.130,e:136.970,w:136.870} },
+  kyoto:     { ja:'京都',         en:'Kyoto',       flag:'⛩',  c:[35.010,135.770], z:13, bbox:{n:35.050,s:34.960,e:135.810,w:135.720} },
+  hiroshima: { ja:'広島',         en:'Hiroshima',   flag:'🕊',  c:[34.400,132.470], z:13, bbox:{n:34.430,s:34.370,e:132.510,w:132.430} },
+  naha:      { ja:'那覇',         en:'Naha',        flag:'🌺', c:[26.220,127.680], z:13, bbox:{n:26.260,s:26.180,e:127.720,w:127.640} },
 };
 const cityLabel = k => CITIES[k][LANG] || CITIES[k].en;
 
@@ -938,14 +943,22 @@ async function openDetail(toilet) {
       ${rvSection}
     </div>
     <div class="a-row">
-      <button class="a-primary" onclick="startReview()">${tr('rvBtn')}</button>
-      <button class="a-sec" onclick="nav(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
+      <button class="a-primary indigo" onclick="nav(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
+    </div>
+    <div class="a-row" style="margin-top:8px">
+      <button class="a-sec" style="flex:1" onclick="startReview()">${tr('rvBtn')}</button>
+      <button class="a-sec" style="flex:1" onclick="report('${toilet.id}')">${tr('reportBtn')}</button>
     </div>
   `);
 }
 
 function nav(lat, lng) {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`, '_blank');
+}
+
+function report(id) {
+  const body = encodeURIComponent(`Toilet ID: ${id}\nIssue: `);
+  window.open(`mailto:oasis.ibd.app@gmail.com?subject=Report&body=${body}`);
 }
 
 /* ═══════════════════════════════════
@@ -1136,6 +1149,8 @@ async function init() {
       if (detected && detected !== activeCity) {
         activeCity = detected;
         loadCity(detected);
+      } else if (allToilets.length) {
+        renderCity(allToilets);
       }
       map.flyTo([lat, lng], 15, {duration: 1.2});
       setTimeout(() => { map.invalidateSize(); renderNearby(); }, 400);
