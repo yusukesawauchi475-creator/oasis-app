@@ -581,14 +581,16 @@ function tierKey(t) {
   return ['','t1','t2','t3','t4'][t.tier] || 't4';
 }
 
+let _mkId = 0;
 function bubbleSvg(tk) {
   const c = TIER_COLORS[tk];
+  const id = `g${_mkId++}`;
   return `<svg class="mk-bubble" width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" style="opacity:${c.op}">
-    <defs><radialGradient id="g-${tk}" cx="40%" cy="35%" r="60%">
+    <defs><radialGradient id="${id}" cx="40%" cy="35%" r="60%">
       <stop offset="0%" stop-color="${c.top}"/>
       <stop offset="100%" stop-color="${c.bot}"/>
     </radialGradient></defs>
-    <circle cx="18" cy="18" r="15" fill="url(#g-${tk})" stroke="white" stroke-width="2.5"/>
+    <circle cx="18" cy="18" r="15" fill="url(#${id})" stroke="white" stroke-width="2.5"/>
     <ellipse cx="14" cy="13" rx="5" ry="3.5" fill="white" opacity="0.35"/>
   </svg>`;
 }
@@ -645,6 +647,7 @@ function applyFilter(f) {
 
 function refreshZoom() {
   const zoom = map ? map.getZoom() : 15;
+  console.log('[ZOOM] refresh zoom:', zoom, 'markers:', allMarkers.length);
   // Remove all current
   allMarkers.forEach(o => { if (o.onMap) { map.removeLayer(o.m); o.onMap = false; } });
   clusterMarkers.forEach(m => map.removeLayer(m));
@@ -658,6 +661,7 @@ function refreshZoom() {
     return true;
   });
 
+  console.log('[ZOOM] visible after filter:', visible.length, 'mode:', zoom >= 14 ? 'bubbles' : 'cluster');
   if (zoom >= 14) {
     // Individual bubbles
     visible.forEach(o => { o.m.addTo(map); o.onMap = true; });
@@ -733,7 +737,9 @@ function renderCity(toilets) {
   clearMarkers();
   allToilets = toilets;
   const scored = scoreToilets(toilets);
+  console.log('[RENDER] total:', toilets.length, 'scored:', scored.length, 'zoom:', map?.getZoom());
   scored.forEach(t => addMarker(t));
+  console.log('[RENDER] allMarkers created:', allMarkers.length);
   applyFilter();
   updateHud(activeCity);
   renderNearby();
