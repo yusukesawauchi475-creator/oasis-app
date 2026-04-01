@@ -310,19 +310,19 @@ html, body { height: 100%; overflow: hidden;
 /* ──────────── MARKERS ──────────── */
 .mk {
   position: relative;
-  width: 30px; height: 30px;
+  width: 36px; height: 36px;
 }
 .mk-body {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   border: 3px solid white;
   box-shadow: 0 2px 10px rgba(0,0,0,.28);
   display: flex; align-items: center; justify-content: center;
 }
-.mk-body.t1 { background: var(--moss); }
-.mk-body.t2 { background: var(--amber); }
-.mk-body.t3 { background: var(--gold); }
-.mk-body.t4 { background: var(--brick); }
-.mk-body.tp { background: var(--partner); border-color: #B5D87A; }
+.mk-body.t1 { background: #2ECC71; }
+.mk-body.t2 { background: #F39C12; }
+.mk-body.t3 { background: #F1C40F; }
+.mk-body.t4 { background: #E74C3C; }
+.mk-body.tp { background: #27AE60; border-color: #B5D87A; }
 .mk-badge {
   position: absolute; top: -4px; right: -4px;
   background: var(--vermillion); color: white;
@@ -505,7 +505,7 @@ const L10N = {
     all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
-    t1:'Yokozuna', t2:'Ozeki', t3:'Sekiwake', t4:'Maegashira',
+    t1:'Public', t2:'Convenience', t3:'Ask Staff', t4:'Unverified',
     hours:'Hours', unknown:'Unknown',
     rvTitle:'Patient Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
@@ -592,7 +592,7 @@ function makeIcon(toilet, reviewCount) {
     ? `<div class="mk-badge">${reviewCount > 99 ? '99+' : reviewCount}</div>` : '';
   return L.divIcon({
     html: `<div class="mk"><div class="mk-body ${cls}"></div>${badge}</div>`,
-    className: '', iconSize: [30,30], iconAnchor: [15,15]
+    className: '', iconSize: [36,36], iconAnchor: [18,18]
   });
 }
 
