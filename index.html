@@ -715,7 +715,7 @@ async function loadCity(cityKey) {
   } catch(e) { console.warn('[LOAD] cache err', e); }
 
   let toilets = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     try {
       const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
       console.log(`[LOAD] chunk ${i} exists:`, snap.exists);
