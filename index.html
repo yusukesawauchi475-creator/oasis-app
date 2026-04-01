@@ -396,6 +396,50 @@ html, body { height: 100%; overflow: hidden;
   font-size: 18px; cursor: pointer;
 }
 
+/* ──────────── BLINK MARKER ──────────── */
+@keyframes mkblink {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.4; }
+}
+.mk-blink .mk-dot { animation: mkblink 0.5s ease-in-out 4; }
+
+/* ──────────── ADD BUTTON ──────────── */
+#add-btn {
+  position: fixed; bottom: 72px; right: 16px; z-index: 800;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--moss); color: #fff; border: none;
+  font-size: 28px; font-weight: 400; line-height: 1;
+  box-shadow: 0 3px 16px rgba(61,122,79,.45);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+#add-btn:active { transform: scale(0.9); }
+
+/* ──────────── REPORT CHOICES ──────────── */
+.rpt-choice {
+  display: block; width: 100%; text-align: left;
+  padding: 14px 16px; margin-bottom: 6px;
+  background: #fff; border: 1.5px solid var(--sand);
+  border-radius: var(--r); cursor: pointer;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+.rpt-choice:active { background: var(--sand2); }
+
+/* ──────────── ADD FORM ──────────── */
+.add-input {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--sand);
+  border-radius: var(--r); font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 14px; margin-bottom: 10px; outline: none;
+}
+.add-input:focus { border-color: var(--indigo); }
+.add-type-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.add-type-btn {
+  padding: 10px 6px; border: 1.5px solid var(--sand); border-radius: var(--r);
+  background: #fff; text-align: center; font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: 'Zen Maru Gothic', sans-serif;
+}
+.add-type-btn.on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+
 /* ──────────── LEGEND BUTTON ──────────── */
 #legend-btn {
   position: fixed; bottom: 68px; right: 16px; z-index: 800;
@@ -539,6 +583,9 @@ html, body { height: 100%; overflow: hidden;
   <button id="nudge-close" onclick="closeNudge()">&times;</button>
 </div>
 
+<!-- Add Button -->
+<button id="add-btn" onclick="openAddToilet()">+</button>
+
 <!-- Legend -->
 <button id="legend-btn" onclick="openLegend()">？</button>
 
@@ -591,9 +638,16 @@ const L10N = {
     restroom:'トイレ',
     showMore: '他{n}件を表示', nearMe:'周辺', search:'検索',
     searchPlaceholder:'都市名・場所名で検索',
-    nudgeText:'使えましたか？', nudgeBtn:'使えた 👍',
+    nudgeText:'{name} どうだった？', nudgeBtn:'使えた 👍',
     legendTitle:'Tier 凡例',
     sendReview:'送信',
+    addTitle:'ここにトイレを追加', addName:'施設名（任意）',
+    addPublic:'公衆トイレ', addStore:'コンビニ・カフェ', addFacility:'ホテル・施設',
+    addSubmit:'送信', addDone:'確認後に公開されます',
+    rptTitle:'問題を報告', rptNoToilet:'トイレがなかった', rptClosed:'閉まっていた',
+    rptWrongPlace:'場所が違う', rptDirty:'不衛生だった', rptOther:'その他',
+    rptDone:'レポートを受け付けました',
+    rvComment:'コメント（任意）',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
@@ -617,9 +671,16 @@ const L10N = {
     restroom:'Restroom',
     showMore: 'Show {n} more', nearMe:'Near Me', search:'Search',
     searchPlaceholder:'Search city or place',
-    nudgeText:'Did it work out?', nudgeBtn:'Worked! 👍',
+    nudgeText:'{name} — how was it?', nudgeBtn:'Worked! 👍',
     legendTitle:'Tier Legend',
     sendReview:'Submit',
+    addTitle:'Add a restroom here', addName:'Name (optional)',
+    addPublic:'Public', addStore:'Store / Cafe', addFacility:'Hotel / Facility',
+    addSubmit:'Submit', addDone:'Will be published after review',
+    rptTitle:'Report an issue', rptNoToilet:'No restroom found', rptClosed:'Was closed',
+    rptWrongPlace:'Wrong location', rptDirty:'Unsanitary', rptOther:'Other',
+    rptDone:'Report received',
+    rvComment:'Comment (optional)',
   }
 };
 const T = L10N[LANG];
@@ -968,7 +1029,7 @@ function renderNearbyCards(items) {
     const label = tr(TIER_LABEL_KEY[tk] || 't4');
     const freeTag = t.free ? tr('tagFree') : '';
     const meta = [label, freeTag].filter(Boolean).join(' · ');
-    return `<div class="nb-card" onclick="openDetail(allToilets.find(x=>x.id==='${t.id.replace(/'/g,"\\'")}'))" data-i="${i}">
+    return `<div class="nb-card" onclick="listTapDetail(allToilets.find(x=>x.id==='${t.id.replace(/'/g,"\\'")}'))" data-i="${i}">
       <span class="nb-tier">${emoji}</span>
       <span class="nb-dist">${fmtDist(t.dist)}</span>
       <div class="nb-info">
@@ -1067,6 +1128,7 @@ function openSheet(html) {
   document.getElementById('overlay').classList.add('show');
   document.getElementById('filter-bar').style.display = 'none';
   document.getElementById('legend-btn').style.display = 'none';
+  document.getElementById('add-btn').style.display = 'none';
   document.getElementById('nearby').classList.remove('show');
 }
 function closeSheet() {
@@ -1074,16 +1136,15 @@ function closeSheet() {
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('filter-bar').style.display = '';
   document.getElementById('legend-btn').style.display = '';
+  document.getElementById('add-btn').style.display = '';
   renderNearby();
 }
 
 /* ═══════════════════════════════════
    TOILET DETAIL
 ═══════════════════════════════════ */
-async function openDetail(toilet) {
+async function openDetail(toilet, autoReview) {
   currentToilet = toilet;
-
-  // Tier badge
   const detailTk = tierKey(toilet);
   const tierCssMap = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'partner'};
   const tierLabelMap = {T1:tr('t1'), T2_PLUS:tr('t2'), T2_MINUS:tr('t2'), T3:tr('t3'), T4:tr('t4'), PARTNER:tr('tagPartner')};
@@ -1092,38 +1153,15 @@ async function openDetail(toilet) {
     ? `<span class="tag free">${tr('tagFree')}</span>`
     : `<span class="tag paid">${tr('tagPaid')}</span>`;
 
-  // Load review summary
-  let rv = {total:0, access:0, priv:0, paper:0};
+  let rv = {total:0};
   try {
     const doc = await db.collection('reviewSummaries').doc(toilet.id).get();
     if (doc.exists) rv = {...rv, ...doc.data()};
   } catch(e) {}
 
-  const pct = (n) => rv.total > 0 ? `${Math.round(n/rv.total*100)}%` : '-';
-  const pcl = (n) => rv.total === 0 ? '' : (n/rv.total >= 0.65 ? 'hi' : (n/rv.total <= 0.35 ? 'lo' : ''));
+  const rvCount = rv.total > 0 ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">${T.reviews(rv.total)}</div>` : '';
 
-  const rvSection = rv.total === 0
-    ? `<div class="rv-none">${tr('rvNone')}</div>`
-    : `<div class="rv-items">
-        <div class="rv-item">
-          <div class="rv-icon">🚪</div>
-          <div class="rv-name">${tr('access')}</div>
-          <div class="rv-pct ${pcl(rv.access)}">${pct(rv.access)}</div>
-        </div>
-        <div class="rv-item">
-          <div class="rv-icon">🔒</div>
-          <div class="rv-name">${tr('priv')}</div>
-          <div class="rv-pct ${pcl(rv.priv)}">${pct(rv.priv)}</div>
-        </div>
-        <div class="rv-item">
-          <div class="rv-icon">🧻</div>
-          <div class="rv-name">${tr('paper')}</div>
-          <div class="rv-pct ${pcl(rv.paper)}">${pct(rv.paper)}</div>
-        </div>
-      </div>`;
-
-  const tk = tierKey(toilet);
-  const phraseCard = tk === 'T3'
+  const phraseCard = detailTk === 'T3'
     ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:14px;font-weight:600">${tr('askPhrase')}</span>
         <button onclick="navigator.clipboard.writeText('${tr('askPhrase')}');this.textContent='${tr('copied')}'" style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">${tr('copyBtn')}</button>
@@ -1133,25 +1171,36 @@ async function openDetail(toilet) {
     <div class="t-name">${toilet.name || tr('restroom')}</div>
     <div class="t-tags">${tierTag}${freeTag}</div>
     ${toilet.hours ? `<div class="t-hours">🕐 ${toilet.hours}</div>` : ''}
+    ${rvCount}
     ${phraseCard}
-    <div class="rv-card">
-      <div class="rv-head">
-        <span class="rv-label">${tr('rvTitle').toUpperCase()}</span>
-        ${rv.total > 0 ? `<span class="rv-count">${T.reviews(rv.total)}</span>` : ''}
-      </div>
-      ${rvSection}
-      <div id="inline-review"></div>
-    </div>
     <div class="a-row">
       <button class="a-primary indigo" onclick="navWithNudge(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
     </div>
     <div class="a-row" style="margin-top:8px">
       <button class="a-sec" style="flex:1" onclick="startInlineReview()">${tr('rvBtn')}</button>
-      <button class="a-sec" style="flex:1" onclick="report('${toilet.id}')">${tr('reportBtn')}</button>
+      <button class="a-sec" style="flex:1" onclick="openReport()">${tr('reportBtn')}</button>
     </div>
+    <div id="inline-review" style="margin-top:12px"></div>
   `);
+  if (autoReview) setTimeout(() => startInlineReview(), 200);
 }
 
+/* ═══════════════════════════════════
+   LIST TAP → BLINK MARKER → DETAIL
+═══════════════════════════════════ */
+function listTapDetail(toilet) {
+  const entry = allMarkers.find(({toilet: t}) => t.id === toilet.id);
+  if (entry && entry.m._icon) {
+    entry.m._icon.classList.add('mk-blink');
+    setTimeout(() => entry.m._icon?.classList.remove('mk-blink'), 2500);
+  }
+  map.flyTo([toilet.lat, toilet.lng], Math.max(map.getZoom(), 15), {duration: 0.6});
+  setTimeout(() => openDetail(toilet), 300);
+}
+
+/* ═══════════════════════════════════
+   NAV + NUDGE
+═══════════════════════════════════ */
 let lastNavToilet = null;
 function nav(lat, lng) {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`, '_blank');
@@ -1162,34 +1211,81 @@ function navWithNudge(lat, lng) {
   closeSheet();
 }
 
-function report(id) {
-  const body = encodeURIComponent(`Toilet ID: ${id}\nIssue: `);
-  window.open(`mailto:oasis.ibd.app@gmail.com?subject=Report&body=${body}`);
-}
-
-/* ═══════════════════════════════════
-   DIRECTIONS NUDGE
-═══════════════════════════════════ */
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && lastNavToilet) {
-    const n = document.getElementById('nudge');
-    document.getElementById('nudge-text').textContent = tr('nudgeText');
+    const name = lastNavToilet.name || tr('restroom');
+    document.getElementById('nudge-text').textContent = tr('nudgeText').replace('{name}', name);
     document.getElementById('nudge-btn').textContent = tr('nudgeBtn');
-    n.classList.add('show');
+    document.getElementById('nudge').classList.add('show');
     setTimeout(() => closeNudge(), 15000);
   }
 });
-function closeNudge() {
-  document.getElementById('nudge').classList.remove('show');
-}
+function closeNudge() { document.getElementById('nudge').classList.remove('show'); }
 function nudgeReview() {
   closeNudge();
-  if (lastNavToilet) {
-    currentToilet = lastNavToilet;
-    openDetail(lastNavToilet);
-    setTimeout(() => startInlineReview(), 300);
-  }
+  if (lastNavToilet) openDetail(lastNavToilet, true);
   lastNavToilet = null;
+}
+
+/* ═══════════════════════════════════
+   REPORT (in-app)
+═══════════════════════════════════ */
+function openReport() {
+  const reasons = ['rptNoToilet','rptClosed','rptWrongPlace','rptDirty','rptOther'];
+  const html = `<div class="t-name">${tr('rptTitle')}</div>`
+    + reasons.map(r => `<button class="rpt-choice" onclick="submitReport('${r}')">${tr(r)}</button>`).join('');
+  openSheet(html);
+}
+
+async function submitReport(reasonKey) {
+  if (!currentToilet) return;
+  try {
+    await db.collection('reports').add({
+      toiletId: currentToilet.id,
+      reason: reasonKey,
+      reportedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch(e) { console.error('Report error', e); }
+  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${tr('rptDone')}</div></div>`);
+  setTimeout(closeSheet, 2000);
+}
+
+/* ═══════════════════════════════════
+   ADD TOILET
+═══════════════════════════════════ */
+let addType = 'public';
+function openAddToilet() {
+  const center = map.getCenter();
+  openSheet(`
+    <div class="t-name">${tr('addTitle')}</div>
+    <input class="add-input" id="add-name" placeholder="${tr('addName')}">
+    <div class="add-type-grid">
+      <button class="add-type-btn on" onclick="setAddType('public',this)">${tr('addPublic')}</button>
+      <button class="add-type-btn" onclick="setAddType('store',this)">${tr('addStore')}</button>
+      <button class="add-type-btn" onclick="setAddType('facility',this)">${tr('addFacility')}</button>
+    </div>
+    <button class="a-primary" onclick="submitAdd(${center.lat},${center.lng})">${tr('addSubmit')}</button>
+  `);
+  addType = 'public';
+}
+
+function setAddType(type, el) {
+  addType = type;
+  el.parentElement.querySelectorAll('.add-type-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+async function submitAdd(lat, lng) {
+  const name = document.getElementById('add-name')?.value || '';
+  try {
+    await db.collection('pending_toilets').add({
+      lat, lng, name, type: addType,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: 'pending',
+    });
+  } catch(e) { console.error('Add error', e); }
+  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${tr('addDone')}</div></div>`);
+  setTimeout(closeSheet, 2000);
 }
 
 /* ═══════════════════════════════════
@@ -1201,6 +1297,8 @@ const RV_Q_KEY = ['q1', 'q2', 'q3'];
 
 function startInlineReview() {
   reviewStep = 0; reviewData = {};
+  const el = document.getElementById('inline-review');
+  if (el) el.style.display = 'block';
   renderInlineStep();
 }
 
@@ -1209,7 +1307,9 @@ function renderInlineStep() {
   if (!el) return;
   const n = reviewStep;
   if (n >= RV_STEPS.length) {
-    submitReview();
+    el.innerHTML = `
+      <input class="add-input" id="rv-comment" placeholder="${tr('rvComment')}" style="margin-top:8px">
+      <button class="irv-submit" onclick="submitReview()">${tr('sendReview')}</button>`;
     return;
   }
   el.innerHTML = `
@@ -1224,25 +1324,19 @@ function renderInlineStep() {
 function inlineAnswer(val) {
   reviewData[RV_STEPS[reviewStep]] = val;
   reviewStep++;
-  if (reviewStep >= RV_STEPS.length) {
-    const el = document.getElementById('inline-review');
-    el.innerHTML = `<button class="irv-submit" onclick="submitReview()">${tr('sendReview')}</button>`;
-  } else {
-    renderInlineStep();
-  }
+  renderInlineStep();
 }
 
 async function submitReview() {
+  const comment = document.getElementById('rv-comment')?.value || '';
   const el = document.getElementById('inline-review');
   if (el) el.innerHTML = `<div class="rv-thanks" style="padding:12px 0"><div class="te" style="font-size:32px">🙏</div><div class="tt" style="font-size:16px">${tr('thanks')}</div></div>`;
   if (!currentToilet) return;
   try {
     await db.collection('reviews').add({
-      toiletId: currentToilet.id,
-      cityKey: activeCity,
-      access: !!reviewData.access,
-      priv:   !!reviewData.priv,
-      paper:  !!reviewData.paper,
+      toiletId: currentToilet.id, cityKey: activeCity,
+      access: !!reviewData.access, priv: !!reviewData.priv, paper: !!reviewData.paper,
+      comment: comment || null,
       ts: firebase.firestore.FieldValue.serverTimestamp(),
     });
     const ref = db.collection('reviewSummaries').doc(currentToilet.id);
