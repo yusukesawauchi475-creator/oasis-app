@@ -309,7 +309,8 @@ html, body { height: 100%; overflow: hidden;
 .cp-item.on .cs { color: rgba(255,255,255,.6); }
 
 /* ──────────── MARKERS ──────────── */
-.mk-bubble { filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.leaflet-div-icon, .mk-icon { background: none !important; border: none !important; }
+.mk-bubble { display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
 .cluster-icon {
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%; border: 2px solid white;
@@ -585,21 +586,23 @@ let _mkId = 0;
 function bubbleSvg(tk) {
   const c = TIER_COLORS[tk];
   const id = `g${_mkId++}`;
-  return `<svg class="mk-bubble" width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" style="opacity:${c.op}">
-    <defs><radialGradient id="${id}" cx="40%" cy="35%" r="60%">
-      <stop offset="0%" stop-color="${c.top}"/>
-      <stop offset="100%" stop-color="${c.bot}"/>
-    </radialGradient></defs>
-    <circle cx="18" cy="18" r="15" fill="url(#${id})" stroke="white" stroke-width="2.5"/>
-    <ellipse cx="14" cy="13" rx="5" ry="3.5" fill="white" opacity="0.35"/>
-  </svg>`;
+  const svg = '<svg class="mk-bubble" width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" style="opacity:'+c.op+'">'
+    +'<defs><radialGradient id="'+id+'" cx="40%" cy="35%" r="60%">'
+    +'<stop offset="0%" stop-color="'+c.top+'"/>'
+    +'<stop offset="100%" stop-color="'+c.bot+'"/>'
+    +'</radialGradient></defs>'
+    +'<circle cx="18" cy="18" r="15" fill="url(#'+id+')" stroke="white" stroke-width="2.5"/>'
+    +'<ellipse cx="14" cy="13" rx="5" ry="3.5" fill="white" opacity="0.35"/>'
+    +'</svg>';
+  if (_mkId <= 2) console.log('[SVG] sample:', svg.substring(0, 120));
+  return svg;
 }
 
 function makeIcon(toilet) {
   const tk = tierKey(toilet);
   return L.divIcon({
     html: bubbleSvg(tk),
-    className: '', iconSize: [36,36], iconAnchor: [18,18]
+    className: 'mk-icon', iconSize: [36,36], iconAnchor: [18,18]
   });
 }
 
