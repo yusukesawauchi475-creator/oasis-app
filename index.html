@@ -118,12 +118,11 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── FILTER BAR ──────────── */
 #filter-bar {
-  position: fixed; bottom: 20px; left: 0; right: 0; z-index: 800;
+  position: fixed; bottom: 72px; left: 0; right: 0; z-index: 800;
   display: flex; gap: 8px; padding: 0 16px;
   overflow-x: auto; scrollbar-width: none;
   transition: bottom 0.3s;
 }
-#nearby.show ~ #filter-bar, body:has(#nearby.show) #filter-bar { bottom: calc(35vh + 8px); }
 #filter-bar::-webkit-scrollbar { display: none; }
 .fchip {
   flex-shrink: 0; padding: 9px 15px; border-radius: 100px;
@@ -315,16 +314,86 @@ html, body { height: 100%; overflow: hidden;
   border: 2.5px solid white;
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
 }
-.mk-dot.t1 { background: radial-gradient(circle at 35% 30%, #5BE89A, #1FA855); }
-.mk-dot.t2 { background: radial-gradient(circle at 35% 30%, #FDCA6E, #E8870A); opacity: 0.85; }
-.mk-dot.t3 { background: radial-gradient(circle at 35% 30%, #FDE96E, #C9A80A); opacity: 0.55; }
-.mk-dot.t4 { background: radial-gradient(circle at 35% 30%, #F28B82, #C0392B); opacity: 0.45; }
-.mk-dot.tp { background: radial-gradient(circle at 35% 30%, #FFD700, #B8860B); }
 .cluster-icon {
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%; border: 2px solid white;
   font-size: 11px; font-weight: 700; color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+
+/* ──────────── BOTTOM TABS ──────────── */
+#bottom-tabs {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 810;
+  display: flex; background: var(--cream);
+  border-top: 1px solid var(--sand);
+  padding-bottom: var(--sheet-safe);
+}
+.btab {
+  flex: 1; padding: 10px 0 8px; border: none; background: none;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  cursor: pointer;
+}
+.btab.on { color: var(--indigo); }
+.btab .btab-icon { font-size: 18px; }
+
+/* ──────────── SEARCH TAB ──────────── */
+#search-panel {
+  position: fixed; bottom: 52px; left: 0; right: 0; z-index: 800;
+  background: var(--cream); padding: 12px 16px;
+  border-top: 1px solid var(--sand);
+  display: none;
+}
+#search-panel.show { display: block; }
+#search-input {
+  width: 100%; padding: 12px 16px; border-radius: var(--r);
+  border: 1.5px solid var(--sand); background: #fff;
+  font-family: 'Zen Maru Gothic', sans-serif; font-size: 14px;
+  outline: none;
+}
+#search-input:focus { border-color: var(--indigo); }
+#search-results { margin-top: 8px; max-height: 40vh; overflow-y: auto; }
+
+/* ──────────── INLINE REVIEW ──────────── */
+.irv-q {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--sand2);
+}
+.irv-q:last-child { border-bottom: none; }
+.irv-icon { font-size: 20px; }
+.irv-text { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.irv-btn {
+  padding: 6px 14px; border-radius: 8px; border: 1.5px solid var(--sand);
+  background: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Zen Maru Gothic', sans-serif;
+}
+.irv-btn.yes { border-color: var(--moss); color: var(--moss); background: #EBF7EF; }
+.irv-btn.no { border-color: var(--brick); color: var(--brick); background: #FCECEB; }
+.irv-submit {
+  width: 100%; padding: 12px; margin-top: 8px;
+  background: var(--moss); color: #fff; border: none; border-radius: var(--r);
+  font-family: 'Zen Maru Gothic', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+
+/* ──────────── NUDGE TOAST ──────────── */
+#nudge {
+  position: fixed; bottom: 80px; left: 16px; right: 16px; z-index: 1200;
+  background: var(--indigo); color: #fff; padding: 14px 18px;
+  border-radius: var(--r); display: none; align-items: center; gap: 12px;
+  box-shadow: 0 4px 20px rgba(26,39,68,.4);
+}
+#nudge.show { display: flex; }
+#nudge-text { flex: 1; font-size: 13px; font-weight: 600; }
+#nudge-btn {
+  padding: 8px 14px; background: var(--moss); color: #fff; border: none;
+  border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap;
+}
+#nudge-close {
+  background: none; border: none; color: rgba(255,255,255,.5);
+  font-size: 18px; cursor: pointer;
 }
 
 /* ──────────── LEGEND BUTTON ──────────── */
@@ -341,12 +410,12 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── NEARBY LIST ──────────── */
 #nearby {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 790;
-  max-height: 35vh; overflow-y: auto;
+  position: fixed; bottom: 52px; left: 0; right: 0; z-index: 790;
+  max-height: 40vh; overflow-y: auto;
   background: var(--cream);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(26,39,68,.15);
-  padding: 8px 14px calc(12px + var(--sheet-safe));
+  padding: 8px 14px 12px;
   transform: translateY(calc(100% - 48px));
   transition: transform 0.32s cubic-bezier(.32,.72,0,1);
 }
@@ -447,6 +516,29 @@ html, body { height: 100%; overflow: hidden;
   <div id="nb-list"></div>
 </div>
 
+<!-- Search Panel -->
+<div id="search-panel">
+  <input id="search-input" type="text" placeholder="" onfocus="this.placeholder=''" oninput="searchCity(this.value)">
+  <div id="search-results"></div>
+</div>
+
+<!-- Bottom Tabs -->
+<div id="bottom-tabs">
+  <button class="btab on" id="tab-near" onclick="switchTab('near')">
+    <span class="btab-icon">📍</span>Near Me
+  </button>
+  <button class="btab" id="tab-search" onclick="switchTab('search')">
+    <span class="btab-icon">🔍</span>Search
+  </button>
+</div>
+
+<!-- Nudge Toast -->
+<div id="nudge">
+  <span id="nudge-text"></span>
+  <button id="nudge-btn" onclick="nudgeReview()"></button>
+  <button id="nudge-close" onclick="closeNudge()">&times;</button>
+</div>
+
 <!-- Legend -->
 <button id="legend-btn" onclick="openLegend()">？</button>
 
@@ -497,6 +589,11 @@ const L10N = {
     emptyState:'この周辺にデータがありません。ズームアウトして探してください。',
     walkMin: n => `徒歩${n}分`,
     restroom:'トイレ',
+    showMore: '他{n}件を表示', nearMe:'周辺', search:'検索',
+    searchPlaceholder:'都市名・場所名で検索',
+    nudgeText:'使えましたか？', nudgeBtn:'使えた 👍',
+    legendTitle:'Tier 凡例',
+    sendReview:'送信',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
@@ -518,6 +615,11 @@ const L10N = {
     emptyState:'No data in this area. Try zooming out.',
     walkMin: n => `${n} min walk`,
     restroom:'Restroom',
+    showMore: 'Show {n} more', nearMe:'Near Me', search:'Search',
+    searchPlaceholder:'Search city or place',
+    nudgeText:'Did it work out?', nudgeBtn:'Worked! 👍',
+    legendTitle:'Tier Legend',
+    sendReview:'Submit',
   }
 };
 const T = L10N[LANG];
@@ -588,36 +690,70 @@ function initMap() {
 }
 
 /* ═══════════════════════════════════
-   MARKERS
+   TIER CONFIG
 ═══════════════════════════════════ */
-const TIER_WEIGHT = {1:4, 2:3, 3:2, 4:1};
-const TIER_COLORS = {
-  t1: {top:'#5BE89A', bot:'#1FA855', op:1.0},
-  t2: {top:'#FDCA6E', bot:'#E8870A', op:0.85},
-  t3: {top:'#FDE96E', bot:'#C9A80A', op:0.55},
-  t4: {top:'#F28B82', bot:'#C0392B', op:0.25},
-  tp: {top:'#FFD700', bot:'#B8860B', op:1.0},
+const TIER_CONFIG = {
+  brands: {
+    T1_JP: ['familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン'],
+    T2_PLUS: ['starbucks','mcdonald','dunkin','whole foods','trader joe','target','walmart','peets','mos burger','モスバーガー'],
+  },
+  types: {
+    T1: ['subway_station','train_station','park','library','city_hall','public_bathroom'],
+    T2_PLUS: ['cafe','convenience_store','supermarket','department_store','shopping_mall'],
+    T2_MINUS: ['transit_station','point_of_interest','establishment'],
+    T3: ['lodging','restaurant','bar','food'],
+  },
+  colors: {
+    T1:       { from:'#5BE89A', to:'#1FA855', opacity:1.0 },
+    T2_PLUS:  { from:'#74b9ff', to:'#2980B9', opacity:1.0 },
+    T2_MINUS: { from:'#FDCA6E', to:'#E67E22', opacity:0.75 },
+    T3:       { from:'#f9ca24', to:'#d4a00a', opacity:0.65 },
+    T4:       { from:'#F28B82', to:'#C0392B', opacity:0.45 },
+    PARTNER:  { from:'#e0e0e0', to:'#9e9e9e', opacity:1.0 },
+  },
+  display: {
+    minVisible: 3,
+    defaultTiers: ['T1','T2_PLUS','PARTNER'],
+    fallbackTiers: ['T2_MINUS','T3','T4'],
+  }
 };
 
+const TIER_WEIGHT = {T1:5, T2_PLUS:4, T2_MINUS:3, T3:2, T4:1, PARTNER:5};
+
+/* ═══════════════════════════════════
+   MARKERS
+═══════════════════════════════════ */
 function tierKey(t) {
-  if (t.isPartner) return 'tp';
-  return ['','t1','t2','t3','t4'][t.tier] || 't4';
+  if (t.isPartner) return 'PARTNER';
+  const name = (t.name || '').toLowerCase();
+  const types = t.types || [];
+  // Brand matching
+  if (TIER_CONFIG.brands.T1_JP.some(b => name.includes(b))) return 'T1';
+  if (TIER_CONFIG.brands.T2_PLUS.some(b => name.includes(b))) return 'T2_PLUS';
+  // Type matching
+  if (types.some(tp => TIER_CONFIG.types.T1.includes(tp))) return 'T1';
+  if (types.some(tp => TIER_CONFIG.types.T2_PLUS.includes(tp))) return 'T2_PLUS';
+  if (types.some(tp => TIER_CONFIG.types.T3.includes(tp))) return 'T3';
+  if (types.some(tp => TIER_CONFIG.types.T2_MINUS.includes(tp))) return 'T2_MINUS';
+  // Fallback from existing tier number
+  const fb = {1:'T1', 2:'T2_PLUS', 3:'T3', 4:'T4'};
+  return fb[t.tier] || 'T4';
 }
 
 function makeIcon(toilet) {
   const tk = tierKey(toilet);
+  const c = TIER_CONFIG.colors[tk] || TIER_CONFIG.colors.T4;
   return L.divIcon({
-    html: `<div class="mk-dot ${tk}"></div>`,
+    html: `<div class="mk-dot" style="background:radial-gradient(circle at 35% 30%,${c.from},${c.to});opacity:${c.opacity}"></div>`,
     className: 'mk-icon', iconSize: [36,36], iconAnchor: [18,18]
   });
 }
 
 function clusterIcon(count, bestTier) {
-  const tk = bestTier || 't4';
-  const c = TIER_COLORS[tk];
+  const c = TIER_CONFIG.colors[bestTier] || TIER_CONFIG.colors.T4;
   const sz = count > 50 ? 44 : (count > 20 ? 38 : 32);
   return L.divIcon({
-    html: `<div class="cluster-icon" style="width:${sz}px;height:${sz}px;background:${c.bot}">${count}</div>`,
+    html: `<div class="cluster-icon" style="width:${sz}px;height:${sz}px;background:${c.to}">${count}</div>`,
     className: '', iconSize: [sz,sz], iconAnchor: [sz/2,sz/2]
   });
 }
@@ -627,7 +763,7 @@ function scoreToilets(toilets) {
   return toilets
     .map(t => {
       const d = Math.hypot((t.lat - userLat)*111320, (t.lng - userLng)*111320*Math.cos(userLat*Math.PI/180));
-      const w = TIER_WEIGHT[t.tier] || 1;
+      const w = TIER_WEIGHT[tierKey(t)] || 1;
       return {...t, _score: d / w, _dist: d};
     })
     .sort((a,b) => a._score - b._score)
@@ -682,12 +818,13 @@ function refreshZoom() {
       const gx = Math.floor(toilet.lng / cellSize);
       const gy = Math.floor(toilet.lat / cellSize);
       const key = `${gx}_${gy}`;
-      if (!grid[key]) grid[key] = {lats:[], lngs:[], count:0, bestTier:'t4', tierRank:99};
+      if (!grid[key]) grid[key] = {lats:[], lngs:[], count:0, bestTier:'T4', tierRank:99};
       grid[key].lats.push(toilet.lat);
       grid[key].lngs.push(toilet.lng);
       grid[key].count++;
       const tk = tierKey(toilet);
-      const rank = tk==='tp'?0 : tk==='t1'?1 : tk==='t2'?2 : tk==='t3'?3 : 4;
+      const ranks = {PARTNER:0, T1:1, T2_PLUS:2, T2_MINUS:3, T3:4, T4:5};
+      const rank = ranks[tk] ?? 5;
       if (rank < grid[key].tierRank) { grid[key].tierRank = rank; grid[key].bestTier = tk; }
     });
     const cells = Object.values(grid);
@@ -788,25 +925,47 @@ function fmtDist(m) {
   return T.walkMin(min);
 }
 
-const TIER_EMOJI = {1:'🟢', 2:'🟠', 3:'🟡', 4:'🔴'};
+const TIER_EMOJI = {T1:'🟢', T2_PLUS:'🔵', T2_MINUS:'🟠', T3:'🟡', T4:'🔴', PARTNER:'⚪'};
+const TIER_LABEL_KEY = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'tagPartner'};
+
+function stageExpand(toilets) {
+  const cfg = TIER_CONFIG.display;
+  let visible = toilets.filter(t => cfg.defaultTiers.includes(tierKey(t)));
+  for (const fb of cfg.fallbackTiers) {
+    if (visible.length >= cfg.minVisible) break;
+    visible = visible.concat(toilets.filter(t => tierKey(t) === fb));
+  }
+  return visible;
+}
+
+let nearbyExpanded = false;
 
 function renderNearby() {
   const el = document.getElementById('nearby');
   const list = document.getElementById('nb-list');
+  nearbyExpanded = false;
   if (userLat == null || userLng == null || !allToilets.length) {
     el.classList.remove('show');
     return;
   }
-  const sorted = allToilets
+  const withDist = allToilets
     .map(t => ({...t, dist: distMeters(userLat, userLng, t.lat, t.lng)}))
-    .sort((a,b) => a.dist - b.dist)
-    .slice(0, 5);
+    .sort((a,b) => a.dist - b.dist);
 
-  const tierLabel = {1: tr('t1'), 2: tr('t2'), 3: tr('t3'), 4: tr('t4')};
+  const staged = stageExpand(withDist).slice(0, 5);
+  const hiddenCount = withDist.length - staged.length;
 
-  list.innerHTML = sorted.map((t, i) => {
-    const emoji = t.isPartner ? '💚' : (TIER_EMOJI[t.tier] || '🔴');
-    const label = t.isPartner ? tr('tagPartner') : (tierLabel[t.tier] || '');
+  list.innerHTML = renderNearbyCards(staged)
+    + (hiddenCount > 0 ? `<button class="a-sec" style="width:100%;margin-top:4px" onclick="expandNearby()">${tr('showMore').replace('{n}', hiddenCount)}</button>` : '');
+
+  el.classList.add('show');
+}
+
+function renderNearbyCards(items) {
+  return items.map((t, i) => {
+    const tk = tierKey(t);
+    const emoji = TIER_EMOJI[tk] || '🔴';
+    const label = tr(TIER_LABEL_KEY[tk] || 't4');
     const freeTag = t.free ? tr('tagFree') : '';
     const meta = [label, freeTag].filter(Boolean).join(' · ');
     return `<div class="nb-card" onclick="openDetail(allToilets.find(x=>x.id==='${t.id.replace(/'/g,"\\'")}'))" data-i="${i}">
@@ -819,8 +978,16 @@ function renderNearby() {
       <button class="nb-nav" onclick="event.stopPropagation();nav(${t.lat},${t.lng})">▶</button>
     </div>`;
   }).join('');
+}
 
-  el.classList.add('show');
+function expandNearby() {
+  nearbyExpanded = true;
+  const list = document.getElementById('nb-list');
+  const all = allToilets
+    .map(t => ({...t, dist: distMeters(userLat, userLng, t.lat, t.lng)}))
+    .sort((a,b) => a.dist - b.dist)
+    .slice(0, 20);
+  list.innerHTML = renderNearbyCards(all);
 }
 
 /* ═══════════════════════════════════
@@ -917,11 +1084,10 @@ async function openDetail(toilet) {
   currentToilet = toilet;
 
   // Tier badge
-  const tierMap = {1: tr('t1'), 2: tr('t2'), 3: tr('t3'), 4: tr('t4')};
-  const tierCls  = {1:'t1', 2:'t2', 3:'t3', 4:'t4'};
-  const tierTag  = toilet.isPartner
-    ? `<span class="tag partner">${tr('tagPartner')}</span>`
-    : `<span class="tag ${tierCls[toilet.tier] || 't4'}">${tierMap[toilet.tier] || '?'}</span>`;
+  const detailTk = tierKey(toilet);
+  const tierCssMap = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'partner'};
+  const tierLabelMap = {T1:tr('t1'), T2_PLUS:tr('t2'), T2_MINUS:tr('t2'), T3:tr('t3'), T4:tr('t4'), PARTNER:tr('tagPartner')};
+  const tierTag = `<span class="tag ${tierCssMap[detailTk] || 't4'}">${tierLabelMap[detailTk] || '?'}</span>`;
   const freeTag = toilet.free
     ? `<span class="tag free">${tr('tagFree')}</span>`
     : `<span class="tag paid">${tr('tagPaid')}</span>`;
@@ -956,8 +1122,9 @@ async function openDetail(toilet) {
         </div>
       </div>`;
 
-  const phraseCard = toilet.tier === 3 && !toilet.isPartner
-    ? `<div class="phrase-card" style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+  const tk = tierKey(toilet);
+  const phraseCard = tk === 'T3'
+    ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:14px;font-weight:600">${tr('askPhrase')}</span>
         <button onclick="navigator.clipboard.writeText('${tr('askPhrase')}');this.textContent='${tr('copied')}'" style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">${tr('copyBtn')}</button>
       </div>` : '';
@@ -973,19 +1140,26 @@ async function openDetail(toilet) {
         ${rv.total > 0 ? `<span class="rv-count">${T.reviews(rv.total)}</span>` : ''}
       </div>
       ${rvSection}
+      <div id="inline-review"></div>
     </div>
     <div class="a-row">
-      <button class="a-primary indigo" onclick="nav(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
+      <button class="a-primary indigo" onclick="navWithNudge(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
     </div>
     <div class="a-row" style="margin-top:8px">
-      <button class="a-sec" style="flex:1" onclick="startReview()">${tr('rvBtn')}</button>
+      <button class="a-sec" style="flex:1" onclick="startInlineReview()">${tr('rvBtn')}</button>
       <button class="a-sec" style="flex:1" onclick="report('${toilet.id}')">${tr('reportBtn')}</button>
     </div>
   `);
 }
 
+let lastNavToilet = null;
 function nav(lat, lng) {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`, '_blank');
+}
+function navWithNudge(lat, lng) {
+  lastNavToilet = currentToilet;
+  nav(lat, lng);
+  closeSheet();
 }
 
 function report(id) {
@@ -994,63 +1168,73 @@ function report(id) {
 }
 
 /* ═══════════════════════════════════
-   REVIEW FLOW
+   DIRECTIONS NUDGE
 ═══════════════════════════════════ */
-const RV_STEPS  = ['access', 'priv', 'paper'];
-const RV_ICONS  = ['🚪', '🔒', '🧻'];
-const RV_Q_KEY  = ['q1', 'q2', 'q3'];
-const RV_SUB    = ['q1s','q2s','q3s'];
-
-function startReview() {
-  reviewStep = 0; reviewData = {};
-  renderReviewStep();
-}
-
-function renderReviewStep() {
-  const n = reviewStep;
-  const total = RV_STEPS.length;
-  if (n >= total) { submitReview(); return; }
-
-  const dots = RV_STEPS.map((_, i) => {
-    const cls = i < n ? 'dn' : (i === n ? 'on' : '');
-    return `<div class="rv-dot ${cls}"></div>`;
-  }).join('');
-
-  openSheet(`
-    <div class="rv-steps">${dots}</div>
-    <div class="rv-q">${RV_ICONS[n]} ${tr(RV_Q_KEY[n])}</div>
-    <div class="rv-qsub">${tr(RV_SUB[n])}</div>
-    <div class="rv-choices">
-      <button class="rv-choice yes" onclick="answer(true,this)">
-        <span class="ce">✅</span><span>${tr('yes')}</span>
-      </button>
-      <button class="rv-choice no" onclick="answer(false,this)">
-        <span class="ce">❌</span><span>${tr('no')}</span>
-      </button>
-    </div>
-  `);
-}
-
-function answer(val, el) {
-  // Tap feedback
-  if (el) {
-    const isYes = val;
-    el.style.borderColor = isYes ? 'var(--moss)' : 'var(--brick)';
-    el.style.background = isYes ? '#EBF7EF' : '#FCECEB';
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && lastNavToilet) {
+    const n = document.getElementById('nudge');
+    document.getElementById('nudge-text').textContent = tr('nudgeText');
+    document.getElementById('nudge-btn').textContent = tr('nudgeBtn');
+    n.classList.add('show');
+    setTimeout(() => closeNudge(), 15000);
   }
+});
+function closeNudge() {
+  document.getElementById('nudge').classList.remove('show');
+}
+function nudgeReview() {
+  closeNudge();
+  if (lastNavToilet) {
+    currentToilet = lastNavToilet;
+    openDetail(lastNavToilet);
+    setTimeout(() => startInlineReview(), 300);
+  }
+  lastNavToilet = null;
+}
+
+/* ═══════════════════════════════════
+   INLINE REVIEW (in detail sheet)
+═══════════════════════════════════ */
+const RV_STEPS = ['access', 'priv', 'paper'];
+const RV_ICONS = ['🚪', '🔒', '🧻'];
+const RV_Q_KEY = ['q1', 'q2', 'q3'];
+
+function startInlineReview() {
+  reviewStep = 0; reviewData = {};
+  renderInlineStep();
+}
+
+function renderInlineStep() {
+  const el = document.getElementById('inline-review');
+  if (!el) return;
+  const n = reviewStep;
+  if (n >= RV_STEPS.length) {
+    submitReview();
+    return;
+  }
+  el.innerHTML = `
+    <div class="irv-q" style="border-bottom:none;padding-top:12px">
+      <span class="irv-icon">${RV_ICONS[n]}</span>
+      <span class="irv-text">${tr(RV_Q_KEY[n])}</span>
+      <button class="irv-btn" onclick="inlineAnswer(true)">${tr('yes')}</button>
+      <button class="irv-btn" onclick="inlineAnswer(false)">${tr('no')}</button>
+    </div>`;
+}
+
+function inlineAnswer(val) {
   reviewData[RV_STEPS[reviewStep]] = val;
   reviewStep++;
-  setTimeout(() => renderReviewStep(), 200);
+  if (reviewStep >= RV_STEPS.length) {
+    const el = document.getElementById('inline-review');
+    el.innerHTML = `<button class="irv-submit" onclick="submitReview()">${tr('sendReview')}</button>`;
+  } else {
+    renderInlineStep();
+  }
 }
 
 async function submitReview() {
-  openSheet(`
-    <div class="rv-thanks">
-      <div class="te">🙏</div>
-      <div class="tt">${tr('thanks')}</div>
-      <div class="ts">${tr('thanksSub')}</div>
-    </div>
-  `);
+  const el = document.getElementById('inline-review');
+  if (el) el.innerHTML = `<div class="rv-thanks" style="padding:12px 0"><div class="te" style="font-size:32px">🙏</div><div class="tt" style="font-size:16px">${tr('thanks')}</div></div>`;
   if (!currentToilet) return;
   try {
     await db.collection('reviews').add({
@@ -1064,60 +1248,88 @@ async function submitReview() {
     const ref = db.collection('reviewSummaries').doc(currentToilet.id);
     await db.runTransaction(async tx => {
       const doc = await tx.get(ref);
-      const inc = {
-        total:  1,
-        access: reviewData.access ? 1 : 0,
-        priv:   reviewData.priv   ? 1 : 0,
-        paper:  reviewData.paper  ? 1 : 0,
-      };
+      const inc = { total:1, access: reviewData.access?1:0, priv: reviewData.priv?1:0, paper: reviewData.paper?1:0 };
       if (!doc.exists) { tx.set(ref, inc); }
       else {
         const d = doc.data();
-        tx.update(ref, {
-          total:  (d.total  || 0) + 1,
-          access: (d.access || 0) + inc.access,
-          priv:   (d.priv   || 0) + inc.priv,
-          paper:  (d.paper  || 0) + inc.paper,
-        });
+        tx.update(ref, { total:(d.total||0)+1, access:(d.access||0)+inc.access, priv:(d.priv||0)+inc.priv, paper:(d.paper||0)+inc.paper });
       }
     });
-    // Update marker badge
-    const entry = allMarkers.find(({toilet}) => toilet.id === currentToilet.id);
-    if (entry) {
-      const doc = await db.collection('reviewSummaries').doc(currentToilet.id).get();
-      const total = doc.exists ? (doc.data().total || 1) : 1;
-      entry.m.setIcon(makeIcon(entry.toilet, total));
-    }
   } catch(e) { console.error('Review error', e); }
-  setTimeout(closeSheet, 2600);
+}
+
+/* ═══════════════════════════════════
+   BOTTOM TABS & SEARCH
+═══════════════════════════════════ */
+function switchTab(tab) {
+  document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
+  document.getElementById(`tab-${tab}`).classList.add('on');
+  const sp = document.getElementById('search-panel');
+  const nb = document.getElementById('nearby');
+  const fb = document.getElementById('filter-bar');
+  if (tab === 'search') {
+    sp.classList.add('show');
+    nb.style.display = 'none';
+    fb.style.display = 'none';
+    document.getElementById('search-input').placeholder = tr('searchPlaceholder');
+    document.getElementById('search-input').focus();
+  } else {
+    sp.classList.remove('show');
+    nb.style.display = '';
+    fb.style.display = '';
+  }
+}
+
+let searchTimer = null;
+function searchCity(q) {
+  clearTimeout(searchTimer);
+  if (q.length < 2) { document.getElementById('search-results').innerHTML = ''; return; }
+  // First check local cities
+  const local = Object.entries(CITIES).filter(([k,c]) =>
+    c.ja.includes(q) || c.en.toLowerCase().includes(q.toLowerCase())
+  );
+  if (local.length) {
+    document.getElementById('search-results').innerHTML = local.map(([k,c]) =>
+      `<div class="nb-card" onclick="selectCity('${k}');switchTab('near')">
+        <span class="nb-tier">${c.flag}</span>
+        <div class="nb-info"><div class="nb-name">${cityLabel(k)}</div></div>
+      </div>`
+    ).join('');
+    return;
+  }
+  // Nominatim fallback
+  searchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const data = await res.json();
+      document.getElementById('search-results').innerHTML = data.map(r =>
+        `<div class="nb-card" onclick="map.flyTo([${r.lat},${r.lon}],15,{duration:1});switchTab('near')">
+          <span class="nb-tier">📍</span>
+          <div class="nb-info"><div class="nb-name">${r.display_name.split(',').slice(0,2).join(',')}</div></div>
+        </div>`
+      ).join('');
+    } catch(e) {}
+  }, 500);
 }
 
 /* ═══════════════════════════════════
    LEGEND
 ═══════════════════════════════════ */
 function openLegend() {
-  const items = LANG === 'ja' ? [
-    {c:'🟢', t:'横綱', d:'公衆トイレ・必ず入れる'},
-    {c:'🟠', t:'大関', d:'コンビニ・駅（大抵入れる）'},
-    {c:'🟡', t:'関脇', d:'ホテル・チェーン店（頼めば使える）'},
-    {c:'🔴', t:'前頭', d:'一般店舗（確認が必要）'},
-  ] : [
-    {c:'🟢', t:'Yokozuna', d:'Public restrooms — always accessible'},
-    {c:'🟠', t:'Ozeki', d:'Convenience stores & stations'},
-    {c:'🟡', t:'Sekiwake', d:'Hotels & chain stores — ask to use'},
-    {c:'🔴', t:'Maegashira', d:'Other stores — may need to check'},
+  const items = [
+    {c:'🟢', t: tr('t1')},
+    {c:'🔵', t: tr('t2')},
+    {c:'🟡', t: tr('t3')},
+    {c:'🔴', t: tr('t4')},
+    {c:'⚪', t: tr('tagPartner')},
   ];
   const html = items.map(i =>
     `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
       <span style="font-size:24px;">${i.c}</span>
-      <div><div style="font-weight:700;font-size:15px;color:var(--indigo);">${i.t}</div>
-      <div style="font-size:12px;color:var(--text2);">${i.d}</div></div>
+      <div style="font-weight:700;font-size:15px;color:var(--indigo);">${i.t}</div>
     </div>`
   ).join('<div class="div"></div>');
-  openSheet(`
-    <div class="t-name">${LANG === 'ja' ? 'Tier 凡例' : 'Tier Legend'}</div>
-    ${html}
-  `);
+  openSheet(`<div class="t-name">${tr('legendTitle')}</div>${html}`);
 }
 
 /* ═══════════════════════════════════
