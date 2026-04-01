@@ -310,7 +310,16 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── MARKERS ──────────── */
 .leaflet-div-icon, .mk-icon { background: none !important; border: none !important; }
-.mk-bubble { display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.mk-dot {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 2.5px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+.mk-dot.t1 { background: radial-gradient(circle at 35% 30%, #5BE89A, #1FA855); }
+.mk-dot.t2 { background: radial-gradient(circle at 35% 30%, #FDCA6E, #E8870A); opacity: 0.85; }
+.mk-dot.t3 { background: radial-gradient(circle at 35% 30%, #FDE96E, #C9A80A); opacity: 0.55; }
+.mk-dot.t4 { background: radial-gradient(circle at 35% 30%, #F28B82, #C0392B); opacity: 0.25; }
+.mk-dot.tp { background: radial-gradient(circle at 35% 30%, #FFD700, #B8860B); }
 .cluster-icon {
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%; border: 2px solid white;
@@ -582,26 +591,10 @@ function tierKey(t) {
   return ['','t1','t2','t3','t4'][t.tier] || 't4';
 }
 
-let _mkId = 0;
-function bubbleSvg(tk) {
-  const c = TIER_COLORS[tk];
-  const id = `g${_mkId++}`;
-  const svg = '<svg class="mk-bubble" width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" style="opacity:'+c.op+'">'
-    +'<defs><radialGradient id="'+id+'" cx="40%" cy="35%" r="60%">'
-    +'<stop offset="0%" stop-color="'+c.top+'"/>'
-    +'<stop offset="100%" stop-color="'+c.bot+'"/>'
-    +'</radialGradient></defs>'
-    +'<circle cx="18" cy="18" r="15" fill="url(#'+id+')" stroke="white" stroke-width="2.5"/>'
-    +'<ellipse cx="14" cy="13" rx="5" ry="3.5" fill="white" opacity="0.35"/>'
-    +'</svg>';
-  if (_mkId <= 2) console.log('[SVG] sample:', svg.substring(0, 120));
-  return svg;
-}
-
 function makeIcon(toilet) {
   const tk = tierKey(toilet);
   return L.divIcon({
-    html: bubbleSvg(tk),
+    html: `<div class="mk-dot ${tk}"></div>`,
     className: 'mk-icon', iconSize: [36,36], iconAnchor: [18,18]
   });
 }
@@ -684,7 +677,9 @@ function refreshZoom() {
       const rank = tk==='tp'?0 : tk==='t1'?1 : tk==='t2'?2 : tk==='t3'?3 : 4;
       if (rank < grid[key].tierRank) { grid[key].tierRank = rank; grid[key].bestTier = tk; }
     });
-    Object.values(grid).forEach(g => {
+    const cells = Object.values(grid);
+    console.log('[ZOOM] clusters:', cells.length, 'cellSize:', cellSize);
+    cells.forEach(g => {
       const lat = g.lats.reduce((a,b)=>a+b,0) / g.count;
       const lng = g.lngs.reduce((a,b)=>a+b,0) / g.count;
       const cm = L.marker([lat, lng], { icon: clusterIcon(g.count, g.bestTier) });
