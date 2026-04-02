@@ -33,14 +33,14 @@
   --sheet-safe: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; overflow: hidden;
+html, body { height: 100%; margin: 0; overflow: hidden;
   font-family: 'Zen Maru Gothic', 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
   background: var(--cream); color: var(--text); }
+#app { display: flex; flex-direction: column; height: 100dvh; height: 100vh; }
 
 /* ──────────── MAP ──────────── */
 #map {
-  position: fixed; inset: 0;
-  height: 100dvh; height: 100vh;
+  flex: 1; position: relative; min-height: 0;
   filter: sepia(0.12) saturate(0.85) brightness(1.04);
 }
 .leaflet-control-zoom,
@@ -118,10 +118,10 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── FILTER BAR ──────────── */
 #filter-bar {
-  position: fixed; bottom: 52px; left: 8px; right: 52px;
+  position: absolute; bottom: 8px; left: 8px; right: 52px;
   display: flex; gap: 6px;
   overflow-x: auto; scrollbar-width: none;
-  z-index: 799;
+  z-index: 10;
 }
 #filter-bar::-webkit-scrollbar { display: none; }
 .fchip {
@@ -322,11 +322,17 @@ html, body { height: 100%; overflow: hidden;
 }
 
 /* ──────────── BOTTOM TABS ──────────── */
+/* ──────────── BOTTOM AREA ──────────── */
+#bottom {
+  height: 260px; flex-shrink: 0;
+  background: var(--cream);
+  border-top: 0.5px solid #e0dbd4;
+  display: flex; flex-direction: column;
+}
 #bottom-tabs {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 810;
   display: flex; background: var(--cream);
-  border-top: 1px solid var(--sand);
-  padding-bottom: var(--sheet-safe);
+  border-bottom: 1px solid var(--sand);
+  flex-shrink: 0;
 }
 .btab {
   flex: 1; padding: 10px 0 8px; border: none; background: none;
@@ -340,9 +346,8 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── SEARCH TAB ──────────── */
 #search-panel {
-  position: fixed; bottom: 52px; left: 0; right: 0; z-index: 800;
-  background: var(--cream); padding: 12px 16px;
-  border-top: 1px solid var(--sand);
+  flex: 1; overflow-y: auto;
+  padding: 12px 16px;
   display: none;
 }
 #search-panel.show { display: block; }
@@ -425,7 +430,7 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── INLINE LEGEND ──────────── */
 #legend-inline {
-  position: fixed; bottom: 108px; right: 8px; z-index: 799;
+  position: absolute; bottom: 52px; right: 8px; z-index: 10;
   display: flex; flex-direction: column; gap: 3px;
   background: rgba(255,255,255,.85); padding: 6px 8px;
   border-radius: 8px; pointer-events: none;
@@ -436,7 +441,7 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── ADD BUTTON ──────────── */
 #add-btn {
-  position: fixed; bottom: 60px; right: 8px; z-index: 800;
+  position: absolute; bottom: 8px; right: 8px; z-index: 10;
   width: 40px; height: 40px; border-radius: 50%;
   background: var(--moss); color: #fff; border: none;
   font-size: 28px; font-weight: 400; line-height: 1;
@@ -485,16 +490,9 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── NEARBY LIST ──────────── */
 #nearby {
-  position: fixed; bottom: 52px; left: 0; right: 0; z-index: 790;
-  max-height: 40vh; overflow-y: auto;
-  background: var(--cream);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(26,39,68,.15);
+  flex: 1; overflow-y: auto;
   padding: 8px 14px 12px;
-  transform: translateY(calc(100% - 48px));
-  transition: transform 0.32s cubic-bezier(.32,.72,0,1);
 }
-#nearby.show { transform: translateY(0); }
 #nearby .nb-handle {
   width: 36px; height: 4px; border-radius: 2px;
   background: var(--sand); margin: 0 auto 8px;
@@ -578,38 +576,39 @@ html, body { height: 100%; overflow: hidden;
   </button>
 </div>
 
-<!-- Map -->
-<div id="map"></div>
-
-<!-- Filter bar -->
-<div id="filter-bar">
-  <button class="fchip on" data-f="all" onclick="setFilter('all')"><span id="f-all">すべて</span></button>
-  <button class="fchip"    data-f="pub" onclick="setFilter('pub')"><span id="f-pub">🌿 公衆トイレ</span></button>
-  <button class="fchip"    data-f="ibd" onclick="setFilter('ibd')"><span id="f-ibd">💚 IBDパートナー</span></button>
-  <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
+<div id="app">
+<!-- Map (flex:1, contains filter/legend/add as absolute children) -->
+<div id="map">
+  <div id="filter-bar">
+    <button class="fchip on" data-f="all" onclick="setFilter('all')"><span id="f-all">すべて</span></button>
+    <button class="fchip"    data-f="pub" onclick="setFilter('pub')"><span id="f-pub">🌿 公衆トイレ</span></button>
+    <button class="fchip"    data-f="ibd" onclick="setFilter('ibd')"><span id="f-ibd">💚 IBDパートナー</span></button>
+    <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
+  </div>
+  <div id="legend-inline"></div>
+  <button id="add-btn" onclick="openAddToilet()">+</button>
 </div>
 
-<!-- Nearby List -->
-<div id="nearby">
-  <div class="nb-handle" onclick="document.getElementById('nearby').classList.toggle('show')"></div>
-  <div id="nb-list"></div>
+<!-- Bottom area (fixed 260px) -->
+<div id="bottom">
+  <div id="bottom-tabs">
+    <button class="btab on" id="tab-near" onclick="switchTab('near')">
+      <span class="btab-icon">📍</span>Near Me
+    </button>
+    <button class="btab" id="tab-search" onclick="switchTab('search')">
+      <span class="btab-icon">🔍</span>Search
+    </button>
+  </div>
+  <div id="nearby">
+    <div id="nb-list"></div>
+  </div>
+  <div id="search-panel">
+    <input id="search-input" type="text" placeholder="" onfocus="this.placeholder=''" oninput="searchCity(this.value)">
+    <div id="search-results"></div>
+  </div>
 </div>
 
-<!-- Search Panel -->
-<div id="search-panel">
-  <input id="search-input" type="text" placeholder="" onfocus="this.placeholder=''" oninput="searchCity(this.value)">
-  <div id="search-results"></div>
-</div>
-
-<!-- Bottom Tabs -->
-<div id="bottom-tabs">
-  <button class="btab on" id="tab-near" onclick="switchTab('near')">
-    <span class="btab-icon">📍</span>Near Me
-  </button>
-  <button class="btab" id="tab-search" onclick="switchTab('search')">
-    <span class="btab-icon">🔍</span>Search
-  </button>
-</div>
+</div><!-- /#app -->
 
 <!-- Nudge Toast -->
 <div id="nudge">
@@ -617,15 +616,6 @@ html, body { height: 100%; overflow: hidden;
   <button id="nudge-btn" onclick="nudgeReview()"></button>
   <button id="nudge-close" onclick="closeNudge()">&times;</button>
 </div>
-
-<!-- Add Button -->
-<button id="add-btn" onclick="openAddToilet()">+</button>
-
-<!-- Inline Legend -->
-<div id="legend-inline"></div>
-
-<!-- Legend (hidden, kept for openSheet ref) -->
-<button id="legend-btn" onclick="openLegend()" style="display:none">？</button>
 
 <!-- Overlay -->
 <div id="overlay" onclick="closeSheet()"></div>
@@ -1186,17 +1176,10 @@ function openSheet(html) {
   document.getElementById('sc').innerHTML = html;
   document.getElementById('sheet').classList.add('show');
   document.getElementById('overlay').classList.add('show');
-  document.getElementById('filter-bar').style.display = 'none';
-  document.getElementById('legend-btn').style.display = 'none';
-  document.getElementById('add-btn').style.display = 'none';
-  document.getElementById('nearby').classList.remove('show');
 }
 function closeSheet() {
   document.getElementById('sheet').classList.remove('show');
   document.getElementById('overlay').classList.remove('show');
-  document.getElementById('filter-bar').style.display = '';
-  document.getElementById('legend-btn').style.display = '';
-  document.getElementById('add-btn').style.display = '';
   renderNearby();
 }
 
@@ -1447,19 +1430,14 @@ async function submitReview() {
 function switchTab(tab) {
   document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
   document.getElementById(`tab-${tab}`).classList.add('on');
-  const sp = document.getElementById('search-panel');
-  const nb = document.getElementById('nearby');
-  const fb = document.getElementById('filter-bar');
   if (tab === 'search') {
-    sp.classList.add('show');
-    nb.style.display = 'none';
-    fb.style.display = 'none';
+    document.getElementById('search-panel').classList.add('show');
+    document.getElementById('nearby').style.display = 'none';
     document.getElementById('search-input').placeholder = tr('searchPlaceholder');
     document.getElementById('search-input').focus();
   } else {
-    sp.classList.remove('show');
-    nb.style.display = '';
-    fb.style.display = '';
+    document.getElementById('search-panel').classList.remove('show');
+    document.getElementById('nearby').style.display = '';
   }
 }
 
