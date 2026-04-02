@@ -398,10 +398,41 @@ html, body { height: 100%; overflow: hidden;
 
 /* ──────────── BLINK MARKER ──────────── */
 @keyframes mkblink {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.4; }
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.4); }
 }
-.mk-blink .mk-dot { animation: mkblink 0.5s ease-in-out 4; }
+.mk-blink .mk-dot { animation: mkblink 0.35s ease-in-out 4; }
+
+/* ──────────── QUICK REVIEW ──────────── */
+.qk-row { display: flex; gap: 8px; margin-top: 4px; }
+.qk-btn {
+  flex: 1; padding: 12px 6px; border-radius: var(--r); border: 1.5px solid transparent;
+  font-family: 'Zen Maru Gothic', sans-serif; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: all 0.15s;
+}
+.qk-btn:active { transform: scale(0.95); }
+.qk-yes { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.qk-no  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.qk-closed { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.qk-yes.sel { background: #dcfce7; border-color: #166534; }
+.qk-no.sel  { background: #fee2e2; border-color: #991b1b; }
+.qk-closed.sel { background: #e2e8f0; border-color: #475569; }
+.qk-more {
+  display: block; margin: 10px auto 0; background: none; border: none;
+  color: var(--indigo); font-size: 13px; font-weight: 700; cursor: pointer;
+  font-family: 'Zen Maru Gothic', sans-serif; text-decoration: underline;
+}
+
+/* ──────────── INLINE LEGEND ──────────── */
+#legend-inline {
+  position: fixed; bottom: 72px; right: 16px; z-index: 799;
+  display: flex; flex-direction: column; gap: 3px;
+  background: rgba(255,255,255,.85); padding: 6px 8px;
+  border-radius: 8px; pointer-events: none;
+}
+.lg-row { display: flex; align-items: center; gap: 5px; }
+.lg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.lg-label { font-size: 9px; font-weight: 600; color: var(--text2); white-space: nowrap; }
 
 /* ──────────── ADD BUTTON ──────────── */
 #add-btn {
@@ -586,8 +617,11 @@ html, body { height: 100%; overflow: hidden;
 <!-- Add Button -->
 <button id="add-btn" onclick="openAddToilet()">+</button>
 
-<!-- Legend -->
-<button id="legend-btn" onclick="openLegend()">？</button>
+<!-- Inline Legend -->
+<div id="legend-inline"></div>
+
+<!-- Legend (hidden, kept for openSheet ref) -->
+<button id="legend-btn" onclick="openLegend()" style="display:none">？</button>
 
 <!-- Overlay -->
 <div id="overlay" onclick="closeSheet()"></div>
@@ -621,7 +655,7 @@ const L10N = {
     all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
     pickCity:'都市を選ぶ',
     tagFree:'無料', tagPaid:'有料', tagPartner:'IBDパートナー',
-    t1:'公衆トイレ', t2:'コンビニ/商業施設', t3:'スタッフに確認', t4:'未確認',
+    t1:'公衆トイレ', t2:'高確率', t3:'要確認', t4:'未確認',
     hours:'営業時間', unknown:'不明',
     rvTitle:'レビュー', rvNone:'まだレビューがありません',
     access:'入れた', priv:'個室OK', paper:'紙あり',
@@ -648,13 +682,19 @@ const L10N = {
     rptWrongPlace:'場所が違う', rptDirty:'不衛生だった', rptOther:'その他',
     rptDone:'レポートを受け付けました',
     rvComment:'コメント（任意）',
+    qkTitle:'使えましたか？', qkYes:'✓ 入れた', qkNo:'✗ 断られた', qkClosed:'🔒 閉鎖中',
+    moreReview:'＋ 詳しくレビュー',
+    navBtnLabel:'🧭 ルート案内',
+    rptBtnLabel:'🚩 問題を報告',
+    lgPub:'公衆・確実', lgLikely:'高確率', lgMay:'要確認', lgAsk:'要声がけ', lgPartner:'IBD提携',
+    hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
     all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
-    t1:'Public', t2:'Convenience', t3:'Ask Staff', t4:'Unverified',
+    t1:'Public', t2:'Most Likely', t3:'Ask Staff', t4:'Unverified',
     hours:'Hours', unknown:'Unknown',
     rvTitle:'Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
@@ -681,6 +721,12 @@ const L10N = {
     rptWrongPlace:'Wrong location', rptDirty:'Unsanitary', rptOther:'Other',
     rptDone:'Report received',
     rvComment:'Comment (optional)',
+    qkTitle:'Did you get in?', qkYes:'✓ Got in', qkNo:'✗ Refused', qkClosed:'🔒 Closed',
+    moreReview:'+ Write a review',
+    navBtnLabel:'🧭 Directions',
+    rptBtnLabel:'🚩 Report issue',
+    lgPub:'Public', lgLikely:'Likely', lgMay:'May work', lgAsk:'Ask staff', lgPartner:'IBD partner',
+    hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
   }
 };
 const T = L10N[LANG];
@@ -1153,13 +1199,7 @@ async function openDetail(toilet, autoReview) {
     ? `<span class="tag free">${tr('tagFree')}</span>`
     : `<span class="tag paid">${tr('tagPaid')}</span>`;
 
-  let rv = {total:0};
-  try {
-    const doc = await db.collection('reviewSummaries').doc(toilet.id).get();
-    if (doc.exists) rv = {...rv, ...doc.data()};
-  } catch(e) {}
-
-  const rvCount = rv.total > 0 ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">${T.reviews(rv.total)}</div>` : '';
+  const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
 
   const phraseCard = detailTk === 'T3'
     ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
@@ -1169,20 +1209,57 @@ async function openDetail(toilet, autoReview) {
 
   openSheet(`
     <div class="t-name">${toilet.name || tr('restroom')}</div>
-    <div class="t-tags">${tierTag}${freeTag}</div>
-    ${toilet.hours ? `<div class="t-hours">🕐 ${toilet.hours}</div>` : ''}
-    ${rvCount}
+    <div class="t-tags">${tierTag}${freeTag}${hoursStr ? `<span style="font-size:11px;color:var(--text2);margin-left:4px">🕐 ${hoursStr}</span>` : ''}</div>
     ${phraseCard}
-    <div class="a-row">
-      <button class="a-primary indigo" onclick="navWithNudge(${toilet.lat},${toilet.lng})">${tr('navBtn')}</button>
+    <div class="a-row" style="margin-bottom:12px">
+      <button class="a-primary indigo" style="font-size:16px" onclick="navWithNudge(${toilet.lat},${toilet.lng})">${tr('navBtnLabel')}</button>
     </div>
-    <div class="a-row" style="margin-top:8px">
-      <button class="a-sec" style="flex:1" onclick="startInlineReview()">${tr('rvBtn')}</button>
-      <button class="a-sec" style="flex:1" onclick="openReport()">${tr('reportBtn')}</button>
+    <div class="div"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">${tr('qkTitle')}</div>
+    <div class="qk-row">
+      <button class="qk-btn qk-yes" onclick="quickVote('yes',this)">${tr('qkYes')}</button>
+      <button class="qk-btn qk-no" onclick="quickVote('no',this)">${tr('qkNo')}</button>
+      <button class="qk-btn qk-closed" onclick="quickVote('closed',this)">${tr('qkClosed')}</button>
     </div>
-    <div id="inline-review" style="margin-top:12px"></div>
+    <div id="qk-more-wrap"></div>
+    <div id="inline-review" style="display:none;margin-top:12px"></div>
+    <div style="margin-top:16px;text-align:center">
+      <button style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif" onclick="openReport()">${tr('rptBtnLabel')}</button>
+    </div>
   `);
   if (autoReview) setTimeout(() => startInlineReview(), 200);
+}
+
+function quickVote(type, el) {
+  el.parentElement.querySelectorAll('.qk-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  // Save quick access vote
+  reviewData = { access: type === 'yes' };
+  if (currentToilet) {
+    db.collection('reviews').add({
+      toiletId: currentToilet.id, cityKey: activeCity,
+      access: type === 'yes', closed: type === 'closed', refused: type === 'no',
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+  }
+  const wrap = document.getElementById('qk-more-wrap');
+  if (wrap) wrap.innerHTML = `<button class="qk-more" onclick="startInlineReview()">${tr('moreReview')}</button>`;
+}
+
+function compressHours(hours) {
+  if (!hours) return '';
+  if (typeof hours === 'string') return hours;
+  if (!Array.isArray(hours) || hours.length === 0) return '';
+  const fmt = s => s.replace(/(\d+):00\s*(AM|PM)/gi, (_, h, ap) => h + ap.toUpperCase());
+  const times = hours.map(h => { const p = h.split(': '); return p.length > 1 ? fmt(p.slice(1).join(': ')) : fmt(h); });
+  const unique = [...new Set(times)];
+  if (unique.length === 1) return `${tr('hoursEveryDay')} ${unique[0]}`;
+  if (hours.length >= 7) {
+    const wd = times.slice(0, 5), we = times.slice(5);
+    const wdU = [...new Set(wd)], weU = [...new Set(we)];
+    if (wdU.length === 1 && weU.length === 1) return `${tr('hoursWeekday')} ${wdU[0]} / ${tr('hoursWeekend')} ${weU[0]}`;
+  }
+  return times[0];
 }
 
 /* ═══════════════════════════════════
@@ -1192,10 +1269,10 @@ function listTapDetail(toilet) {
   const entry = allMarkers.find(({toilet: t}) => t.id === toilet.id);
   if (entry && entry.m._icon) {
     entry.m._icon.classList.add('mk-blink');
-    setTimeout(() => entry.m._icon?.classList.remove('mk-blink'), 2500);
+    setTimeout(() => entry.m._icon?.classList.remove('mk-blink'), 1600);
   }
   map.flyTo([toilet.lat, toilet.lng], Math.max(map.getZoom(), 15), {duration: 0.6});
-  setTimeout(() => openDetail(toilet), 300);
+  setTimeout(() => openDetail(toilet), 200);
 }
 
 /* ═══════════════════════════════════
@@ -1409,21 +1486,21 @@ function searchCity(q) {
 /* ═══════════════════════════════════
    LEGEND
 ═══════════════════════════════════ */
-function openLegend() {
+function openLegend() {}
+
+function renderInlineLegend() {
+  const el = document.getElementById('legend-inline');
+  if (!el) return;
   const items = [
-    {c:'🟢', t: tr('t1')},
-    {c:'🔵', t: tr('t2')},
-    {c:'🟡', t: tr('t3')},
-    {c:'🔴', t: tr('t4')},
-    {c:'⚪', t: tr('tagPartner')},
+    {color: TIER_CONFIG.colors.T1.to, label: tr('lgPub')},
+    {color: TIER_CONFIG.colors.T2_PLUS.to, label: tr('lgLikely')},
+    {color: TIER_CONFIG.colors.T3.to, label: tr('lgMay')},
+    {color: TIER_CONFIG.colors.T4.to, label: tr('lgAsk')},
+    {color: TIER_CONFIG.colors.PARTNER.to, label: tr('lgPartner')},
   ];
-  const html = items.map(i =>
-    `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
-      <span style="font-size:24px;">${i.c}</span>
-      <div style="font-weight:700;font-size:15px;color:var(--indigo);">${i.t}</div>
-    </div>`
-  ).join('<div class="div"></div>');
-  openSheet(`<div class="t-name">${tr('legendTitle')}</div>${html}`);
+  el.innerHTML = items.map(i =>
+    `<div class="lg-row"><div class="lg-dot" style="background:${i.color}"></div><span class="lg-label">${i.label}</span></div>`
+  ).join('');
 }
 
 /* ═══════════════════════════════════
@@ -1470,6 +1547,7 @@ function applyLang() {
 async function init() {
   ldmsg(tr('loading'));
   applyLang();
+  renderInlineLegend();
   initMap();
 
   // Attempt auto-locate
