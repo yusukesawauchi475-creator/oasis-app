@@ -422,11 +422,24 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 .mk-blink .mk-dot { animation: mkblink 0.35s ease-in-out 4; }
 
 /* ──────────── USER LOCATION ──────────── */
-.me-dot {
-  width: 20px; height: 20px;
-  background: #4A90E2; border: 3px solid white;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(74,144,226,.3);
+.me-pin {
+  width: 0; height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 20px solid #E74C3C;
+  position: relative;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+.me-pin::before {
+  content: ''; width: 12px; height: 12px;
+  background: #E74C3C; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: absolute; top: -28px; left: -6px;
+}
+.me-pin::after {
+  content: ''; width: 5px; height: 5px;
+  background: white; border-radius: 50%;
+  position: absolute; top: -22px; left: -2.5px;
 }
 
 /* ──────────── QUICK REVIEW ──────────── */
@@ -1181,8 +1194,8 @@ function goToMe() {
     document.getElementById('loc-btn').classList.add('lit');
     if (userDot) map.removeLayer(userDot);
     userDot = L.marker([lat, lng], { icon: L.divIcon({
-      html: '<div class="me-dot"></div>',
-      className: '', iconSize: [20,20], iconAnchor: [10,10]
+      html: '<div class="me-pin"></div>',
+      className: '', iconSize: [20,28], iconAnchor: [10,28]
     }) }).addTo(map);
     const detected = detectCity(lat, lng);
     if (detected && detected !== activeCity) {
