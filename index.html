@@ -55,8 +55,13 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   transition: opacity 0.5s;
+  animation: screenFade 0.4s ease-out forwards;
 }
 #loading.out { opacity: 0; pointer-events: none; }
+@keyframes screenFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
 .ld-logo {
   width: 80px; height: 80px; border-radius: 22px;
   overflow: hidden;
@@ -64,7 +69,14 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   box-shadow: 0 8px 36px rgba(0,0,0,.2);
   animation: ldpulse 1.6s ease-in-out infinite;
 }
-.ld-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ld-logo img {
+  width: 100%; height: 100%; object-fit: cover;
+  animation: logoReveal 1.2s ease-out forwards;
+}
+@keyframes logoReveal {
+  0% { opacity: 0; filter: blur(12px); transform: scale(0.92); }
+  100% { opacity: 1; filter: blur(0px); transform: scale(1); }
+}
 @keyframes ldpulse {
   0%,100%{transform:scale(1);box-shadow:0 8px 36px rgba(0,0,0,.2)}
   50%{transform:scale(1.07);box-shadow:0 12px 44px rgba(0,0,0,.3)}
@@ -580,6 +592,10 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   </div>
   <div id="legend-inline"></div>
   <button id="add-btn" onclick="openAddToilet()">+</button>
+  <div id="lang-toggle" style="position:absolute;top:10px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1000;border:.5px solid rgba(0,0,0,.1)">
+    <button onclick="setLang('ja')" id="lt-ja" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:#1a2744;color:white;font-family:sans-serif">JP</button>
+    <button onclick="setLang('en')" id="lt-en" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:none;color:#888;font-family:sans-serif">EN</button>
+  </div>
 </div>
 
 <!-- Bottom area (fixed 260px) -->
@@ -635,7 +651,8 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 /* ═══════════════════════════════════
    LANGUAGE
 ═══════════════════════════════════ */
-const LANG = navigator.language.startsWith('ja') ? 'ja' : 'en';
+let LANG = localStorage.getItem('oasis-lang') ||
+  (navigator.language.startsWith('ja') ? 'ja' : 'en');
 const L10N = {
   ja: {
     loading:'読み込み中...', loadCity:'地図を準備しています...',
@@ -716,8 +733,17 @@ const L10N = {
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
   }
 };
-const T = L10N[LANG];
-const tr = k => T[k] || k;
+let T = L10N[LANG];
+let tr = k => T[k] || k;
+
+function setLang(l) {
+  LANG = l;
+  T = L10N[LANG];
+  tr = k => T[k] || k;
+  localStorage.setItem('oasis-lang', l);
+  applyLang();
+  if (typeof renderNearby === 'function') renderNearby();
+}
 
 /* ═══════════════════════════════════
    CITIES
@@ -1530,6 +1556,14 @@ function applyLang() {
   document.getElementById('f-ibd').innerHTML    = tr('ibd');
   document.getElementById('f-free').innerHTML   = tr('free');
   document.documentElement.lang = LANG;
+  var ja = document.getElementById('lt-ja');
+  var en = document.getElementById('lt-en');
+  if (ja && en) {
+    ja.style.background = LANG==='ja' ? '#1a2744' : 'none';
+    ja.style.color = LANG==='ja' ? 'white' : '#888';
+    en.style.background = LANG==='en' ? '#1a2744' : 'none';
+    en.style.color = LANG==='en' ? 'white' : '#888';
+  }
 }
 
 /* ═══════════════════════════════════
