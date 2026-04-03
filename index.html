@@ -810,7 +810,7 @@ function addUIOverlays() {
   if (!document.getElementById('lang-toggle')) {
     var lt = document.createElement('div');
     lt.id = 'lang-toggle';
-    lt.style.cssText = 'position:absolute;top:10px;left:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)';
+    lt.style.cssText = 'position:absolute;top:60px;left:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)';
     lt.innerHTML = '<button id="lt-ja" onclick="setLang(\'ja\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">JP</button>'
       + '<button id="lt-en" onclick="setLang(\'en\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">EN</button>';
     mapEl.appendChild(lt);
