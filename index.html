@@ -611,10 +611,10 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 <div id="bottom">
   <div id="bottom-tabs">
     <button class="btab on" id="tab-near" onclick="switchTab('near')">
-      <span class="btab-icon">📍</span>Near Me
+      <span class="btab-icon">📍</span><span id="tab-near-label">Near Me</span>
     </button>
     <button class="btab" id="tab-search" onclick="switchTab('search')">
-      <span class="btab-icon">🔍</span>Search
+      <span class="btab-icon">🔍</span><span id="tab-search-label">Search</span>
     </button>
   </div>
   <div id="nearby">
@@ -667,8 +667,8 @@ const L10N = {
     loading:'読み込み中...', loadCity:'地図を準備しています...',
     all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
     pickCity:'都市を選ぶ',
-    tagFree:'無料', tagPaid:'有料', tagPartner:'IBDパートナー',
-    t1:'公衆トイレ', t2:'高確率', t3:'要確認', t4:'未確認',
+    tagFree:'無料', tagPaid:'有料', tagPartner:'IBD提携',
+    t1:'確実', t2p:'たぶん使える', t2m:'要確認', t3:'声がけ必要', t4:'未確認',
     hours:'営業時間', unknown:'不明',
     rvTitle:'レビュー', rvNone:'まだレビューがありません',
     access:'入れた', priv:'個室OK', paper:'紙あり',
@@ -699,7 +699,7 @@ const L10N = {
     moreReview:'＋ 詳しくレビュー',
     navBtnLabel:'🧭 ルート案内',
     rptBtnLabel:'🚩 問題を報告',
-    lgPub:'公衆・確実', lgLikely:'高確率', lgMay:'要確認', lgAsk:'要声がけ', lgPartner:'IBD提携',
+    lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'未確認', lgPartner:'IBD提携',
     hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
   },
   en: {
@@ -707,7 +707,7 @@ const L10N = {
     all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
-    t1:'Public', t2:'Most Likely', t3:'Ask Staff', t4:'Unverified',
+    t1:'Confirmed', t2p:'Likely', t2m:'May Work', t3:'Ask Staff', t4:'Unverified',
     hours:'Hours', unknown:'Unknown',
     rvTitle:'Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
@@ -738,7 +738,7 @@ const L10N = {
     moreReview:'+ Write a review',
     navBtnLabel:'🧭 Directions',
     rptBtnLabel:'🚩 Report issue',
-    lgPub:'Public', lgLikely:'Likely', lgMay:'May work', lgAsk:'Ask staff', lgPartner:'IBD partner',
+    lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Unverified', lgPartner:'IBD Partner',
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
   }
 };
@@ -1079,7 +1079,7 @@ function fmtDist(m) {
 }
 
 const TIER_EMOJI = {T1:'🟢', T2_PLUS:'🔵', T2_MINUS:'🟠', T3:'🟡', T4:'🔴', PARTNER:'⚪'};
-const TIER_LABEL_KEY = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'tagPartner'};
+const TIER_LABEL_KEY = {T1:'t1', T2_PLUS:'t2p', T2_MINUS:'t2m', T3:'t3', T4:'t4', PARTNER:'tagPartner'};
 
 function stageExpand(toilets) {
   const cfg = TIER_CONFIG.display;
@@ -1242,7 +1242,7 @@ async function openDetail(toilet, autoReview) {
   currentToilet = toilet;
   const detailTk = tierKey(toilet);
   const tierCssMap = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'partner'};
-  const tierLabelMap = {T1:tr('t1'), T2_PLUS:tr('t2'), T2_MINUS:tr('t2'), T3:tr('t3'), T4:tr('t4'), PARTNER:tr('tagPartner')};
+  const tierLabelMap = {T1:tr('t1'), T2_PLUS:tr('t2p'), T2_MINUS:tr('t2m'), T3:tr('t3'), T4:tr('t4'), PARTNER:tr('tagPartner')};
   const tierTag = `<span class="tag ${tierCssMap[detailTk] || 't4'}">${tierLabelMap[detailTk] || '?'}</span>`;
   const freeTag = toilet.free
     ? `<span class="tag free">${tr('tagFree')}</span>`
@@ -1584,6 +1584,10 @@ function applyLang() {
   document.getElementById('f-pub').innerHTML    = tr('pub');
   document.getElementById('f-ibd').innerHTML    = tr('ibd');
   document.getElementById('f-free').innerHTML   = tr('free');
+  var tnl = document.getElementById('tab-near-label');
+  var tsl = document.getElementById('tab-search-label');
+  if (tnl) tnl.textContent = tr('nearMe');
+  if (tsl) tsl.textContent = tr('search');
   document.documentElement.lang = LANG;
   var ja = document.getElementById('lt-ja');
   var en = document.getElementById('lt-en');
