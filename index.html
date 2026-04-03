@@ -421,6 +421,14 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 }
 .mk-blink .mk-dot { animation: mkblink 0.35s ease-in-out 4; }
 
+/* ──────────── USER LOCATION ──────────── */
+.me-dot {
+  width: 20px; height: 20px;
+  background: #4A90E2; border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(74,144,226,.3);
+}
+
 /* ──────────── QUICK REVIEW ──────────── */
 .qk-row { display: flex; gap: 8px; margin-top: 4px; }
 .qk-btn {
@@ -592,7 +600,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   </div>
   <div id="legend-inline"></div>
   <button id="add-btn" onclick="openAddToilet()">+</button>
-  <div id="lang-toggle" style="position:absolute;top:10px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1000;border:.5px solid rgba(0,0,0,.1)">
+  <div id="lang-toggle" style="position:absolute;top:10px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)">
     <button onclick="setLang('ja')" id="lt-ja" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:#1a2744;color:white;font-family:sans-serif">JP</button>
     <button onclick="setLang('en')" id="lt-en" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:none;color:#888;font-family:sans-serif">EN</button>
   </div>
@@ -1172,10 +1180,10 @@ function goToMe() {
     userLat = lat; userLng = lng;
     document.getElementById('loc-btn').classList.add('lit');
     if (userDot) map.removeLayer(userDot);
-    userDot = L.circleMarker([lat, lng], {
-      radius: 4, fillColor: '#3B82F6', color: 'white',
-      weight: 1, fillOpacity: 1, pane: 'markerPane'
-    }).addTo(map);
+    userDot = L.marker([lat, lng], { icon: L.divIcon({
+      html: '<div class="me-dot"></div>',
+      className: '', iconSize: [20,20], iconAnchor: [10,10]
+    }) }).addTo(map);
     const detected = detectCity(lat, lng);
     if (detected && detected !== activeCity) {
       activeCity = detected;
@@ -1588,10 +1596,10 @@ async function init() {
       userLat = lat; userLng = lng;
       document.getElementById('loc-btn').classList.add('lit');
       if (userDot) map.removeLayer(userDot);
-      userDot = L.circleMarker([lat, lng], {
-        radius: 4, fillColor: '#3B82F6', color: 'white',
-        weight: 1, fillOpacity: 1
-      }).addTo(map);
+      userDot = L.marker([lat, lng], { icon: L.divIcon({
+        html: '<div class="me-dot"></div>',
+        className: '', iconSize: [20,20], iconAnchor: [10,10]
+      }) }).addTo(map);
       const detected = detectCity(lat, lng);
       if (detected && detected !== activeCity) {
         activeCity = detected;
