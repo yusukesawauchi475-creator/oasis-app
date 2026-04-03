@@ -10,6 +10,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<link rel="icon" href="oasis-logo.jpg">
+<link rel="apple-touch-icon" href="oasis-logo.jpg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho+B1:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -40,7 +42,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 
 /* ──────────── MAP ──────────── */
 #map {
-  flex: 1; position: relative; min-height: 0; overflow: hidden;
+  flex: 1; position: relative; min-height: 0;
   filter: sepia(0.12) saturate(0.85) brightness(1.04);
 }
 .leaflet-control-zoom,
@@ -57,15 +59,15 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 #loading.out { opacity: 0; pointer-events: none; }
 .ld-logo {
   width: 80px; height: 80px; border-radius: 22px;
-  background: var(--vermillion);
-  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
   margin-bottom: 24px;
-  box-shadow: 0 8px 36px rgba(198,60,40,.45);
+  box-shadow: 0 8px 36px rgba(0,0,0,.2);
   animation: ldpulse 1.6s ease-in-out infinite;
 }
+.ld-logo img { width: 100%; height: 100%; object-fit: cover; }
 @keyframes ldpulse {
-  0%,100%{transform:scale(1);box-shadow:0 8px 36px rgba(198,60,40,.45)}
-  50%{transform:scale(1.07);box-shadow:0 12px 44px rgba(198,60,40,.6)}
+  0%,100%{transform:scale(1);box-shadow:0 8px 36px rgba(0,0,0,.2)}
+  50%{transform:scale(1.07);box-shadow:0 12px 44px rgba(0,0,0,.3)}
 }
 .ld-title {
   font-family: 'Shippori Mincho B1', serif;
@@ -78,11 +80,11 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 #logo {
   position: fixed; top: 16px; left: 16px; z-index: 900;
   width: 44px; height: 44px; border-radius: 12px;
-  background: var(--vermillion);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 3px 16px rgba(198,60,40,.45);
+  overflow: hidden;
+  box-shadow: 0 3px 16px rgba(0,0,0,.2);
   cursor: pointer; user-select: none;
 }
+#logo img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ──────────── CITY HUD ──────────── */
 #city-hud {
@@ -121,7 +123,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   position: absolute; bottom: 8px; left: 8px; right: 52px;
   display: flex; gap: 5px;
   overflow-x: auto; scrollbar-width: none;
-  z-index: 10;
+  z-index: 1000;
 }
 #filter-bar::-webkit-scrollbar { display: none; }
 .fchip {
@@ -429,7 +431,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 
 /* ──────────── INLINE LEGEND ──────────── */
 #legend-inline {
-  position: absolute; bottom: 52px; right: 8px; z-index: 10;
+  position: absolute; bottom: 52px; right: 8px; z-index: 1000;
   display: flex; flex-direction: column; gap: 3px;
   background: rgba(255,255,255,.88); padding: 5px 8px;
   border-radius: 7px; border: 0.5px solid rgba(0,0,0,.08);
@@ -441,7 +443,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 
 /* ──────────── ADD BUTTON ──────────── */
 #add-btn {
-  position: absolute; bottom: 8px; right: 8px; z-index: 10;
+  position: absolute; bottom: 8px; right: 8px; z-index: 1000;
   width: 40px; height: 40px; border-radius: 50%;
   background: #1FA855; color: white; border: none;
   font-size: 20px; cursor: pointer;
@@ -538,11 +540,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 <!-- Loading -->
 <div id="loading">
   <div class="ld-logo">
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-      <circle cx="22" cy="28" r="13" fill="white" opacity=".92"/>
-      <ellipse cx="22" cy="16" rx="7" ry="8" fill="white" opacity=".92"/>
-      <ellipse cx="22" cy="7" rx="3.5" ry="4.5" fill="white" opacity=".7"/>
-    </svg>
+    <img src="oasis-logo.jpg" alt="Oasis">
   </div>
   <div class="ld-title">Oasis</div>
   <div class="ld-sub" id="ld-msg">読み込み中...</div>
@@ -550,11 +548,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 
 <!-- Logo -->
 <div id="logo">
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <circle cx="14" cy="18" r="9" fill="white" opacity=".92"/>
-    <ellipse cx="14" cy="10" rx="5" ry="5.5" fill="white" opacity=".92"/>
-    <ellipse cx="14" cy="4" rx="2.5" ry="3" fill="white" opacity=".7"/>
-  </svg>
+  <img src="oasis-logo.jpg" alt="Oasis">
 </div>
 
 <!-- City HUD -->
@@ -787,6 +781,14 @@ function initMap() {
     maxZoom: 19, subdomains: 'abcd',
   }).addTo(map);
   map.on('zoomend', () => refreshZoom());
+  setTimeout(function(){
+    var fb = document.getElementById('filter-bar');
+    var lg = document.getElementById('legend-inline');
+    var ab = document.getElementById('add-btn');
+    console.log('[CHECK] filter-bar:', fb ? fb.style.display : 'NOT FOUND');
+    console.log('[CHECK] legend:', lg ? lg.style.display : 'NOT FOUND');
+    console.log('[CHECK] add-btn:', ab ? ab.style.display : 'NOT FOUND');
+  }, 2000);
 }
 
 /* ═══════════════════════════════════
