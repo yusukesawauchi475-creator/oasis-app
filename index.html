@@ -1546,7 +1546,11 @@ function bgPicker(e) { if (e.target === document.getElementById('cpicker')) clos
    LOADING HELPERS
 ═══════════════════════════════════ */
 function showLoading() { document.getElementById('loading').classList.remove('out'); }
-function hideLoading() { document.getElementById('loading').classList.add('out'); }
+function hideLoading() {
+  var el = document.getElementById('loading');
+  el.classList.add('out');
+  setTimeout(function(){ el.style.display = 'none'; }, 600);
+}
 function ldmsg(t)      { document.getElementById('ld-msg').textContent = t; }
 
 /* ═══════════════════════════════════
