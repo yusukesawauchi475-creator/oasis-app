@@ -422,24 +422,16 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 .mk-blink .mk-dot { animation: mkblink 0.35s ease-in-out 4; }
 
 /* ──────────── USER LOCATION ──────────── */
-.me-pin {
-  width: 0; height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 20px solid #E74C3C;
-  position: relative;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+@keyframes me-ripple {
+  0%   { box-shadow: 0 0 0 0 rgba(231,76,60,.5), 0 2px 6px rgba(0,0,0,.3); }
+  70%  { box-shadow: 0 0 0 14px rgba(231,76,60,0), 0 2px 6px rgba(0,0,0,.3); }
+  100% { box-shadow: 0 0 0 0 rgba(231,76,60,0), 0 2px 6px rgba(0,0,0,.3); }
 }
-.me-pin::before {
-  content: ''; width: 12px; height: 12px;
-  background: #E74C3C; border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  position: absolute; top: -28px; left: -6px;
-}
-.me-pin::after {
-  content: ''; width: 5px; height: 5px;
-  background: white; border-radius: 50%;
-  position: absolute; top: -22px; left: -2.5px;
+.me-dot {
+  width: 22px; height: 22px;
+  background: #E74C3C; border: 3px solid white;
+  border-radius: 50%;
+  animation: me-ripple 1.8s infinite;
 }
 
 /* ──────────── QUICK REVIEW ──────────── */
@@ -613,10 +605,6 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   </div>
   <div id="legend-inline"></div>
   <button id="add-btn" onclick="openAddToilet()">+</button>
-  <div id="lang-toggle" style="position:absolute;top:10px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)">
-    <button onclick="setLang('ja')" id="lt-ja" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:#1a2744;color:white;font-family:sans-serif">JP</button>
-    <button onclick="setLang('en')" id="lt-en" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:none;color:#888;font-family:sans-serif">EN</button>
-  </div>
 </div>
 
 <!-- Bottom area (fixed 260px) -->
@@ -817,6 +805,19 @@ const CACHE_MS = 86400000;
 /* ═══════════════════════════════════
    MAP
 ═══════════════════════════════════ */
+function addUIOverlays() {
+  var mapEl = document.getElementById('map');
+  if (!document.getElementById('lang-toggle')) {
+    var lt = document.createElement('div');
+    lt.id = 'lang-toggle';
+    lt.style.cssText = 'position:absolute;top:10px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)';
+    lt.innerHTML = '<button id="lt-ja" onclick="setLang(\'ja\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">JP</button>'
+      + '<button id="lt-en" onclick="setLang(\'en\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">EN</button>';
+    mapEl.appendChild(lt);
+  }
+  applyLang();
+}
+
 function initMap() {
   map = L.map('map', {
     center: CITIES.manhattan.c,
@@ -828,6 +829,7 @@ function initMap() {
     maxZoom: 19, subdomains: 'abcd',
   }).addTo(map);
   map.on('zoomend', () => refreshZoom());
+  addUIOverlays();
   setTimeout(function(){
     var fb = document.getElementById('filter-bar');
     var lg = document.getElementById('legend-inline');
@@ -1194,8 +1196,8 @@ function goToMe() {
     document.getElementById('loc-btn').classList.add('lit');
     if (userDot) map.removeLayer(userDot);
     userDot = L.marker([lat, lng], { icon: L.divIcon({
-      html: '<div class="me-pin"></div>',
-      className: '', iconSize: [20,28], iconAnchor: [10,28]
+      html: '<div class="me-dot"></div>',
+      className: '', iconSize: [22,22], iconAnchor: [11,11]
     }) }).addTo(map);
     const detected = detectCity(lat, lng);
     if (detected && detected !== activeCity) {
