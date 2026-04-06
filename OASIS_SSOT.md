@@ -1,0 +1,196 @@
+# OASIS APP — SSOT / 引き継ぎドキュメント
+
+## ハンドオフ合言葉
+「SSOT読んで。Oasis appのCTO頼む。」
+
+---
+
+## 基本情報
+
+| 項目 | 値 |
+|---|---|
+| 本番URL | https://findoasis.app |
+| Netlify URL | https://idyllic-mooncake-b78e56.netlify.app |
+| Firebase project | oasis-bde20 |
+| Firebase API Key | AIzaSyDXQabNFmpISVQ4O_yCP6dTyx-UC_uGQLw |
+| Google Places API Key | AIzaSyDVuhME-g_3QakgS4cmtWlYR01uns2kG1A |
+
+---
+
+## Current state（2026-04-06 v4）
+
+### データ
+- 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
+- Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む）
+- Firestoreチャンク構造: cities/{cityKey}/chunks/{0-14}
+
+### UI/UX実装済み
+- TIER_CONFIG（brands/types/colors/display）
+- Bottom tab 2枚（Near Me / Search）
+- 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
+- 詳細シート：Directions大ボタン→Report→3択投票→展開式レビュー
+- JP/ENトグル（localStorage保存、地図上部中央）
+- 赤rippleピン（現在地）
+- ロゴ差し替え（oasis-logo.jpg）
+- ローディングblur reveal アニメーション
+- hideLoading display:none修正
+- フィルター・凡例・＋ボタン全部地図内position:absolute
+- Tier表示：確実/たぶん使える/要確認/声がけ必要/未確認/IBD提携
+- Search→detectCity→loadCity自動切替（goToSearchResult関数、2026-04-06修正）
+
+### 残課題
+1. ~~Search後にloadCity()が呼ばれない~~ → **修正済み（2026-04-06 fe6d753）**
+2. JP/ENが実機で正しく動くか未確認
+3. findoasis.appの実機総合確認が未実施
+
+---
+
+## アーキテクチャ
+
+**Firestore-first（Overpassはadmin ingest専用、user-facing一切なし）**
+
+```
+ユーザーが都市選択 / GPS自動検出
+    ↓
+localStorage 24hキャッシュチェック
+    ├─ HIT → 即表示
+    └─ MISS → Firebase Firestore fetch（chunk分割）
+                └─ 全chunk完了 → localStorageに保存
+```
+
+**Overpassは絶対にuser-facingで使わない。**
+理由: HTTP 200でXML error bodyを返す（`text.startsWith('<')`チェック必須）。
+ingest時のみAdmin SDKで使用。
+
+---
+
+## データ構造（Firestore）
+
+```
+cities/{cityKey}/chunks/{0-14}
+```
+
+**トイレオブジェクト:**
+```js
+{
+  id, name, lat, lng,
+  cat,           // 'Public'|'Convenience'|'Station'|'Partner'
+  free,          // boolean
+  isPartner,     // boolean
+  isUnconfirmed, // boolean
+  hours,         // string or null
+  tier,          // 1-4
+  source,        // 'google'|'osm'
+}
+```
+
+---
+
+## Tier システム
+
+| Tier | 色 | 条件 | JP表示 | EN表示 |
+|---|---|---|---|---|
+| T1 Green | 🟢 | 公衆トイレ, 日本の駅, Whole Foods/Target/TJ | 確実 | Reliable |
+| T2 Orange | 🟠 | 日本のコンビニ | たぶん使える | Likely Available |
+| T3 Yellow | 🟡 | US 7-Eleven等, ホテル | 要確認 | Ask First |
+| T4 Red | 🔴 | オフィスビル, 単体"Bathroom"エントリ | 声がけ必要 | Permission Needed |
+| Unconfirmed | ⚪ | 未確認 | 未確認 | Unconfirmed |
+| Partner | 💜 | IBD提携 | IBD提携 | IBD Partner |
+
+**重要:** `isPartner` は `isPublicPlace()` チェックより先に確認すること。
+
+---
+
+## 都市リスト（14都市）
+
+| City key | ラベル | center | zoom |
+|---|---|---|---|
+| manhattan | Manhattan, NY | 40.754,-74.003 | 13 |
+| tokyo | Tokyo 東京 | 35.690,139.760 | 12 |
+| osaka | Osaka 大阪 | 34.693,135.502 | 13 |
+| kobe | Kobe 神戸 | 34.690,135.195 | 13 |
+| london | London | 51.505,-0.090 | 13 |
+| sydney | Sydney | -33.868,151.209 | 13 |
+| melbourne | Melbourne | -37.813,144.963 | 13 |
+| brisbane | Brisbane | -27.467,153.028 | 13 |
+| fukuoka | Fukuoka 福岡 | 33.590,130.402 | 13 |
+| sapporo | Sapporo 札幌 | 43.062,141.354 | 13 |
+| nagoya | Nagoya 名古屋 | 35.181,136.906 | 13 |
+| kyoto | Kyoto 京都 | 35.012,135.768 | 13 |
+| hiroshima | Hiroshima 広島 | 34.396,132.459 | 13 |
+| naha | Naha 那覇 | 26.335,127.680 | 13 |
+
+**総ロケーション数: ~40,000**
+
+---
+
+## データソース戦略
+
+### ⚠️ Google Maps Platform 料金変更（2025年3月1日施行）
+**$200月額クレジット廃止。SKU別無料枠に変更。**
+
+| カテゴリ | 月間無料枠 | 主なSKU |
+|---|---|---|
+| Essentials | 10,000リクエスト | Nearby Search Basic, Place Details Essentials |
+| Pro | 5,000リクエスト | Nearby Search Pro, Place Details Pro |
+
+### データソース別用途
+| ソース | 用途 | コスト |
+|---|---|---|
+| OSM `amenity=toilets` | 公衆トイレ単体（T1） | 無料 |
+| Google Places API | 商業施設（T2〜T3） | SKU別課金 |
+| iknowibd.com | IBDパートナー店舗（Partner） | $0（スクレイプ） |
+
+---
+
+## Email / ドメイン
+
+| アドレス | 用途 | サービス |
+|---|---|---|
+| hello@findoasis.app | Oasis公式 | Zoho Mail Lite ($15/年) |
+| hello@ippei.bet | INK / 個人用 | 同Zohoアカウント エイリアス |
+
+---
+
+## SNS
+
+| プラットフォーム | アカウント | 状態 |
+|---|---|---|
+| X / Twitter | @oasis_app_web | 作成済み、0投稿 |
+| Reddit | 未作成 | hello@ippei.betで作成予定 |
+
+---
+
+## 重要ルール / 既知ハマりポイント
+
+- `.mk` クラスに `max-width:100%` を当てるとマーカーが崩れる
+- Leafletはinline embed（CDN非依存）
+- `tr()` 関数（`t()`からリネーム、Leaflet内部変数衝突回避）
+- `map.getBounds()` は `setView()` 直後は古い値を返すことがある → `requestAnimationFrame` で待つ
+- `map.invalidateSize()` はHUDやsidebar変更後に必須
+- Overpass APIはこのサーバーから403ブロック → ブラウザ経由のみ
+- Apostropheを含む名前（McDonald's等）はJS stringで要注意
+- `isPublicPlace()` は `isPartner` チェックを先に行うこと
+- `source` フィールド（'google'|'osm'）→ ingestスクリプトで必ずセット
+
+---
+
+## デプロイルール（厳守）
+
+- 1セッション最大5 deploys
+- デプロイ前にコード確認必須
+- 同じエラーで3回失敗したらアプローチ変更、デプロイ停止
+- エラーが出ても即デプロイしない。原因特定してから1発で直す
+
+---
+
+## Places APIインジェスト承認制
+
+新都市追加・再インジェスト前に必ずコスト試算をオーナーに提示し、明示的なYesをもらうまで実行禁止。
+
+---
+
+## セッション開始時の確認事項
+
+1. 本SSOTをアップロード
+2. 「SSOT読んで。Oasis appのCTO頼む。」で引き継ぎ
