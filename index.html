@@ -1479,6 +1479,17 @@ async function submitReview() {
 /* ═══════════════════════════════════
    BOTTOM TABS & SEARCH
 ═══════════════════════════════════ */
+async function goToSearchResult(lat, lon) {
+  const detected = detectCity(lat, lon);
+  if (detected && detected !== activeCity) {
+    activeCity = detected;
+    await loadCity(detected);
+  }
+  map.flyTo([lat, lon], 15, {duration: 1});
+  switchTab('near');
+  setTimeout(() => renderNearby(), 500);
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
   document.getElementById(`tab-${tab}`).classList.add('on');
@@ -1516,7 +1527,7 @@ function searchCity(q) {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
       const data = await res.json();
       document.getElementById('search-results').innerHTML = data.map(r =>
-        `<div class="nb-card" onclick="map.flyTo([${r.lat},${r.lon}],15,{duration:1});switchTab('near')">
+        `<div class="nb-card" onclick="goToSearchResult(${r.lat},${r.lon})">
           <span class="nb-tier">📍</span>
           <div class="nb-info"><div class="nb-name">${r.display_name.split(',').slice(0,2).join(',')}</div></div>
         </div>`
