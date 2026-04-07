@@ -162,27 +162,55 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 #sheet {
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 1000;
-  background: var(--cream);
-  border-radius: 26px 26px 0 0;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
   transform: translateY(100%);
-  transition: transform 0.36s cubic-bezier(.32,.72,0,1);
+  transition: transform 0.25s ease-out;
   max-height: 88vh; overflow-y: auto;
-  box-shadow: 0 -8px 44px rgba(26,39,68,.22);
+  box-shadow: 0 -4px 32px rgba(0,0,0,.15);
   padding-bottom: calc(16px + var(--sheet-safe));
 }
 #sheet.show { transform: translateY(0); }
 .sheet-handle {
-  width: 42px; height: 4px; border-radius: 2px;
-  background: var(--sand); margin: 14px auto 0;
+  width: 36px; height: 4px; border-radius: 2px;
+  background: #D1D5DB; margin: 10px auto 0;
 }
-.sc { padding: 14px 20px 8px; }
+.sc { padding: 16px 20px 8px; }
 
 /* ──────────── TOILET DETAIL ──────────── */
+.t-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
 .t-name {
-  font-family: 'Shippori Mincho B1', serif;
-  font-size: 22px; font-weight: 800; color: var(--indigo);
-  line-height: 1.3; margin: 6px 0 10px;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 20px; font-weight: 700; color: var(--indigo);
+  line-height: 1.3; flex: 1;
 }
+.t-tier-badge {
+  padding: 4px 12px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  white-space: nowrap; flex-shrink: 0; margin-top: 4px;
+}
+.t-info-list { list-style: none; padding: 0; margin: 0 0 16px; }
+.t-info-list li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text2); padding: 6px 0;
+  border-bottom: 1px solid #F3F0EB;
+}
+.t-info-list li:last-child { border-bottom: none; }
+.t-info-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
+.t-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+.t-act-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px 10px; border-radius: 12px;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  border: none; transition: transform 0.15s, opacity 0.15s;
+}
+.t-act-btn:active { transform: scale(0.96); opacity: .9; }
+.t-act-btn.primary { background: var(--indigo); color: #fff; }
+.t-act-btn.secondary { background: #F3F0EB; color: var(--indigo); }
+.t-act-icon { font-size: 16px; }
+.t-divider { height: 1px; background: #F3F0EB; margin: 0 0 14px; }
+
 .t-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .tag {
   padding: 4px 11px; border-radius: 100px;
@@ -195,12 +223,6 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 .tag.partner { background:#EFF4E8; color:var(--partner); }
 .tag.free { background:#EBF7EF; color:var(--moss); }
 .tag.paid { background:#F4F4F4; color:var(--text2); }
-
-.t-hours {
-  font-size: 13px; color: var(--text2);
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 16px;
-}
 
 /* ──────────── REVIEW CARD ──────────── */
 .rv-card {
@@ -830,6 +852,7 @@ function initMap() {
   }).addTo(map);
   map.on('zoomend', () => refreshZoom());
   map.on('moveend', () => { if (map.getZoom() >= 14) refreshZoom(); });
+  map.on('click', () => clearSearchPin());
   addUIOverlays();
   setTimeout(function(){
     var fb = document.getElementById('filter-bar');
@@ -942,7 +965,10 @@ function applyFilter(f) {
   refreshZoom();
 }
 
+let isRefreshing = false;
 function refreshZoom() {
+  if (isRefreshing) return;
+  isRefreshing = true;
   const zoom = map ? map.getZoom() : 15;
   console.log('[ZOOM] refresh zoom:', zoom, 'markers:', allMarkers.length);
   // Remove all current
@@ -994,6 +1020,7 @@ function refreshZoom() {
       clusterMarkers.push(cm);
     });
   }
+  isRefreshing = false;
 }
 
 /* ═══════════════════════════════════
@@ -1251,30 +1278,42 @@ function closeSheet() {
 async function openDetail(toilet, autoReview) {
   currentToilet = toilet;
   const detailTk = tierKey(toilet);
-  const tierCssMap = {T1:'t1', T2_PLUS:'t2', T2_MINUS:'t2', T3:'t3', T4:'t4', PARTNER:'partner'};
   const tierLabelMap = {T1:tr('t1'), T2_PLUS:tr('t2p'), T2_MINUS:tr('t2m'), T3:tr('t3'), T4:tr('t4'), PARTNER:tr('tagPartner')};
-  const tierTag = `<span class="tag ${tierCssMap[detailTk] || 't4'}">${tierLabelMap[detailTk] || '?'}</span>`;
-  const freeTag = toilet.free
-    ? `<span class="tag free">${tr('tagFree')}</span>`
-    : `<span class="tag paid">${tr('tagPaid')}</span>`;
+  const tierColorMap = {
+    T1:'background:#EBF7EF;color:#166534;', T2_PLUS:'background:#EBF4FF;color:#1E40AF;',
+    T2_MINUS:'background:#FEF4E8;color:#9A3412;', T3:'background:#FEFBE8;color:#854D0E;',
+    T4:'background:#FCECEB;color:#991B1B;', PARTNER:'background:#EFF4E8;color:#3D5A2E;'
+  };
+  const badgeStyle = tierColorMap[detailTk] || tierColorMap.T4;
+  const badgeLabel = tierLabelMap[detailTk] || '?';
 
   const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
+  const freeLabel = toilet.free ? tr('tagFree') : tr('tagPaid');
 
   const phraseCard = detailTk === 'T3'
-    ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+    ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:14px;font-weight:600">${tr('askPhrase')}</span>
         <button onclick="navigator.clipboard.writeText('${tr('askPhrase')}');this.textContent='${tr('copied')}'" style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">${tr('copyBtn')}</button>
       </div>` : '';
 
+  // Info rows
+  let infoRows = '';
+  if (hoursStr) infoRows += `<li><span class="t-info-icon">🕐</span>${hoursStr}</li>`;
+  infoRows += `<li><span class="t-info-icon">💴</span>${freeLabel}</li>`;
+  if (toilet.cat) infoRows += `<li><span class="t-info-icon">📍</span>${toilet.cat}</li>`;
+
   openSheet(`
-    <div class="t-name">${toilet.name || tr('restroom')}</div>
-    <div class="t-tags">${tierTag}${freeTag}${hoursStr ? `<span style="font-size:11px;color:var(--text2);margin-left:4px">🕐 ${hoursStr}</span>` : ''}</div>
-    ${phraseCard}
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="a-primary indigo" style="flex:2;font-size:16px" onclick="navWithNudge(${toilet.lat},${toilet.lng})">${tr('navBtnLabel')}</button>
-      <button class="a-sec" style="flex:1" onclick="openReport()">${tr('rptBtnLabel')}</button>
+    <div class="t-header">
+      <div class="t-name">${toilet.name || tr('restroom')}</div>
+      <span class="t-tier-badge" style="${badgeStyle}">${badgeLabel}</span>
     </div>
-    <div class="div"></div>
+    <ul class="t-info-list">${infoRows}</ul>
+    ${phraseCard}
+    <div class="t-actions">
+      <button class="t-act-btn primary" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-act-icon">🧭</span>${tr('navBtnLabel')}</button>
+      <button class="t-act-btn secondary" onclick="openReport()"><span class="t-act-icon">⚠️</span>${tr('rptBtnLabel')}</button>
+    </div>
+    <div class="t-divider"></div>
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">${tr('qkTitle')}</div>
     <div class="qk-row">
       <button class="qk-btn qk-yes" onclick="quickVote('yes',this)">${tr('qkYes')}</button>
@@ -1489,12 +1528,22 @@ async function submitReview() {
 /* ═══════════════════════════════════
    BOTTOM TABS & SEARCH
 ═══════════════════════════════════ */
+let searchPin = null;
+function clearSearchPin() {
+  if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
+}
+
 async function goToSearchResult(lat, lon) {
+  clearSearchPin();
   const detected = detectCity(lat, lon);
   if (detected && detected !== activeCity) {
     activeCity = detected;
     await loadCity(detected);
   }
+  searchPin = L.marker([lat, lon], { icon: L.divIcon({
+    html: '<div class="me-dot"></div>',
+    className: '', iconSize: [22,22], iconAnchor: [11,11]
+  }) }).addTo(map);
   map.flyTo([lat, lon], 15, {duration: 1});
   switchTab('near');
   setTimeout(() => renderNearby(), 500);
@@ -1517,6 +1566,7 @@ function switchTab(tab) {
 let searchTimer = null;
 function searchCity(q) {
   clearTimeout(searchTimer);
+  clearSearchPin();
   if (q.length < 2) { document.getElementById('search-results').innerHTML = ''; return; }
   // First check local cities
   const local = Object.entries(CITIES).filter(([k,c]) =>
