@@ -660,7 +660,6 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   <div id="filter-bar">
     <button class="fchip on" data-f="all" onclick="setFilter('all')"><span id="f-all">すべて</span></button>
     <button class="fchip"    data-f="pub" onclick="setFilter('pub')"><span id="f-pub">🌿 公衆トイレ</span></button>
-    <button class="fchip"    data-f="ibd" onclick="setFilter('ibd')"><span id="f-ibd">💚 IBDパートナー</span></button>
     <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
   </div>
   <div id="legend-inline"></div>
@@ -725,7 +724,7 @@ let LANG = localStorage.getItem('oasis-lang') ||
 const L10N = {
   ja: {
     loading:'読み込み中...', loadCity:'地図を準備しています...',
-    all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
+    all:'すべて', pub:'🌿 公衆トイレ', free:'💴 無料のみ',
     pickCity:'都市を選ぶ',
     tagFree:'無料', tagPaid:'有料', tagPartner:'IBD提携',
     t1:'確実', t2p:'たぶん使える', t2m:'たぶん使える', t3:'声がけ必要', t4:'要確認',
@@ -764,7 +763,7 @@ const L10N = {
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
-    all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
+    all:'All', pub:'🌿 Public', free:'💴 Free only',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
     t1:'Confirmed', t2p:'Likely', t2m:'Likely OK', t3:'Ask Staff', t4:'Check First',
@@ -1017,20 +1016,23 @@ function refreshZoom() {
   // Filter
   let visible = allMarkers.filter(({toilet}) => {
     if (activeFilter === 'pub')  return toilet.cat === 'Public';
-    if (activeFilter === 'ibd')  return !!toilet.isPartner;
     if (activeFilter === 'free') return !!toilet.free;
     return true;
   });
 
   console.log('[ZOOM] visible after filter:', visible.length, 'mode:', zoom >= 14 ? 'bubbles' : 'cluster');
   if (zoom >= 14) {
-    // Individual bubbles — only show markers in current viewport
-    const bounds = map.getBounds();
-    visible.forEach(o => {
-      if (bounds.contains([o.toilet.lat, o.toilet.lng])) {
-        o.m.addTo(map); o.onMap = true;
-      }
+    // Individual bubbles — wait one frame so map.getBounds() returns fresh value after flyTo/setView
+    requestAnimationFrame(() => {
+      const bounds = map.getBounds();
+      visible.forEach(o => {
+        if (bounds.contains([o.toilet.lat, o.toilet.lng])) {
+          o.m.addTo(map); o.onMap = true;
+        }
+      });
+      isRefreshing = false;
     });
+    return;
   } else {
     // Cluster mode
     const grid = {};
@@ -1070,12 +1072,12 @@ async function loadCity(cityKey) {
   isLoadingCity = true;
   console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
-  const ck = `oasis_v4_${cityKey}`;
+  const ck = `oasis_v5_${cityKey}`;
   try {
     const raw = localStorage.getItem(ck);
     if (raw) {
       const {ts, d} = JSON.parse(raw);
-      if (Date.now() - ts < CACHE_MS) {
+      if (Date.now() - ts < CACHE_MS && Array.isArray(d) && d.length > 0) {
         console.log('[LOAD] cache hit', d.length);
         renderCity(d);
         hideLoading();
@@ -1086,11 +1088,13 @@ async function loadCity(cityKey) {
   } catch(e) { console.warn('[LOAD] cache err', e); }
 
   let toilets = [];
+  let anyOK = false;
   const chunkPromises = [];
   for (let i = 0; i < 15; i++) {
     chunkPromises.push(
       db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get()
         .then(snap => {
+          anyOK = true;
           if (snap.exists) return snap.data().toilets || [];
           return [];
         })
@@ -1099,16 +1103,16 @@ async function loadCity(cityKey) {
   }
   const results = await Promise.all(chunkPromises);
   results.forEach(arr => { toilets = toilets.concat(arr); });
-  console.log('[LOAD] total', toilets.length);
+  console.log('[LOAD] total', toilets.length, 'anyOK:', anyOK);
   if (toilets.length) {
     try { localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets})); } catch(e) {}
   }
-  renderCity(toilets);
+  renderCity(toilets, { fetchFailed: !anyOK });
   hideLoading();
   isLoadingCity = false;
 }
 
-function renderCity(toilets) {
+function renderCity(toilets, opts = {}) {
   console.log('[RENDER] renderCity start', toilets.length);
   clearMarkers();
   removeEmptyState();
@@ -1116,7 +1120,7 @@ function renderCity(toilets) {
   console.log('[RENDER] total:', toilets.length, 'zoom:', map?.getZoom());
   toilets.forEach(t => addMarker(t));
   console.log('[RENDER] allMarkers created:', allMarkers.length);
-  if (toilets.length === 0) showEmptyState();
+  if (toilets.length === 0 && opts.fetchFailed) showEmptyState();
   applyFilter();
   updateHud(activeCity);
   renderNearby();
@@ -1786,7 +1790,6 @@ function ldmsg(t)      { document.getElementById('ld-msg').textContent = t; }
 function applyLang() {
   document.getElementById('f-all').textContent  = tr('all');
   document.getElementById('f-pub').innerHTML    = tr('pub');
-  document.getElementById('f-ibd').innerHTML    = tr('ibd');
   document.getElementById('f-free').innerHTML   = tr('free');
   var tnl = document.getElementById('tab-near-label');
   var tsl = document.getElementById('tab-search-label');
