@@ -132,9 +132,11 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 
 /* ──────────── FILTER BAR ──────────── */
 #filter-bar {
-  position: absolute; bottom: 8px; left: 8px; right: 52px;
+  position: absolute; bottom: 8px; left: 8px; right: 0;
   display: flex; gap: 5px;
   overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 56px;
   z-index: 1000;
 }
 #filter-bar::-webkit-scrollbar { display: none; }
@@ -163,55 +165,84 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 1000;
   background: #fff;
-  border-radius: 16px 16px 0 0;
+  border-radius: 22px 22px 0 0;
   transform: translateY(100%);
   transition: transform 0.25s ease-out;
   max-height: 88vh; overflow-y: auto;
-  box-shadow: 0 -4px 32px rgba(0,0,0,.15);
+  box-shadow: 0 -6px 40px rgba(0,0,0,.13);
   padding-bottom: calc(16px + var(--sheet-safe));
 }
 #sheet.show { transform: translateY(0); }
 .sheet-handle {
-  width: 36px; height: 4px; border-radius: 2px;
+  width: 32px; height: 4px; border-radius: 2px;
   background: #D1D5DB; margin: 10px auto 0;
 }
 .sc { padding: 16px 20px 8px; }
 
 /* ──────────── TOILET DETAIL ──────────── */
-.t-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+.t-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
 .t-name {
   font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 20px; font-weight: 700; color: var(--indigo);
+  font-size: 19px; font-weight: 700; color: var(--indigo);
   line-height: 1.3; flex: 1;
 }
+.t-face { font-size: 42px; line-height: 1; flex-shrink: 0; }
 .t-tier-badge {
   padding: 4px 12px; border-radius: 100px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
-  white-space: nowrap; flex-shrink: 0; margin-top: 4px;
+  white-space: nowrap;
 }
-.t-info-list { list-style: none; padding: 0; margin: 0 0 16px; }
-.t-info-list li {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--text2); padding: 6px 0;
-  border-bottom: 1px solid #F3F0EB;
+.t-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 12px; }
+.t-star { font-size: 20px; cursor: pointer; opacity: 0.25; transition: opacity 0.15s; }
+.t-star.on { opacity: 1; }
+.t-star-count { font-size: 11px; color: var(--text3); margin-left: 6px; }
+.t-info-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2); margin-bottom: 4px;
 }
-.t-info-list li:last-child { border-bottom: none; }
-.t-info-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
-.t-actions { display: flex; gap: 10px; margin-bottom: 16px; }
-.t-act-btn {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 14px 10px; border-radius: 12px;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  border: none; transition: transform 0.15s, opacity 0.15s;
-}
-.t-act-btn:active { transform: scale(0.96); opacity: .9; }
-.t-act-btn.primary { background: var(--indigo); color: #fff; }
-.t-act-btn.secondary { background: #F3F0EB; color: var(--indigo); }
-.t-act-icon { font-size: 16px; }
-.t-divider { height: 1px; background: #F3F0EB; margin: 0 0 14px; }
+.t-info-row .t-ii { font-size: 13px; width: 18px; text-align: center; }
 
-.t-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+/* ──── 3D Buttons ──── */
+.t-btn-row { display: flex; gap: 10px; margin: 14px 0; }
+.t-btn-3d {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px 10px; border-radius: 18px;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  border: none; transition: transform 0.08s, box-shadow 0.08s;
+  position: relative;
+}
+.t-btn-3d:active { transform: translateY(4px); box-shadow: none !important; }
+.t-btn-nav { background: #2EAF70; color: #fff; box-shadow: 0 5px 0 #1A7A4A; }
+.t-btn-rpt { background: #F5F5F0; color: #9AA89E; box-shadow: 0 5px 0 #D5D8D5; }
+.t-btn-icon { font-size: 18px; }
+
+/* ──── Quick Vote section ──── */
+.t-vote-section {
+  background: #F2FAF5; border-radius: 18px;
+  padding: 14px 14px 10px; margin-top: 4px;
+}
+.t-vote-title {
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 10px;
+}
+.t-vote-row { display: flex; gap: 8px; }
+.t-vote-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 6px; border-radius: 14px;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  border: none; transition: transform 0.08s, box-shadow 0.08s;
+}
+.t-vote-btn:active { transform: translateY(4px); box-shadow: none !important; }
+.t-vote-icon { font-size: 22px; line-height: 1; }
+.t-vote-yes    { background: #D6F5E5; color: #1A7A4A; box-shadow: 0 4px 0 #8EDBB5; }
+.t-vote-no     { background: #FFE8E8; color: #C03030; box-shadow: 0 4px 0 #F5AAAA; }
+.t-vote-closed { background: #EDF0FF; color: #4A54C8; box-shadow: 0 4px 0 #AABABF; }
+.t-vote-btn.sel { transform: translateY(4px); box-shadow: none; opacity: 0.85; }
+
+/* legacy tag classes kept for report/other sheets */
 .tag {
   padding: 4px 11px; border-radius: 100px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
@@ -479,14 +510,21 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 /* ──────────── INLINE LEGEND ──────────── */
 #legend-inline {
   position: absolute; bottom: 52px; right: 8px; z-index: 1000;
-  display: flex; flex-direction: column; gap: 3px;
-  background: rgba(255,255,255,.88); padding: 5px 8px;
-  border-radius: 7px; border: 0.5px solid rgba(0,0,0,.08);
-  pointer-events: none;
+  background: rgba(255,255,255,.92); padding: 5px 7px;
+  border-radius: 20px; border: 0.5px solid rgba(0,0,0,.08);
+  cursor: pointer; user-select: none;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  transition: all 0.2s ease;
 }
-.lg-row { display: flex; align-items: center; gap: 5px; }
-.lg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.lg-label { font-size: 9px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+#legend-inline.expanded {
+  border-radius: 10px; padding: 6px 10px;
+}
+.lg-dots { display: flex; gap: 5px; align-items: center; }
+.lg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.lg-expanded { display: none; margin-top: 4px; }
+#legend-inline.expanded .lg-expanded { display: block; }
+.lg-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.lg-label { font-size: 10px; font-weight: 600; color: var(--text2); white-space: nowrap; }
 
 /* ──────────── ADD BUTTON ──────────── */
 #add-btn {
@@ -690,7 +728,7 @@ const L10N = {
     all:'すべて', pub:'🌿 公衆トイレ', ibd:'💚 IBDパートナー', free:'💴 無料のみ',
     pickCity:'都市を選ぶ',
     tagFree:'無料', tagPaid:'有料', tagPartner:'IBD提携',
-    t1:'確実', t2p:'たぶん使える', t2m:'要確認', t3:'声がけ必要', t4:'未確認',
+    t1:'確実', t2p:'たぶん使える', t2m:'たぶん使える', t3:'声がけ必要', t4:'要確認',
     hours:'営業時間', unknown:'不明',
     rvTitle:'レビュー', rvNone:'まだレビューがありません',
     access:'入れた', priv:'個室OK', paper:'紙あり',
@@ -721,7 +759,7 @@ const L10N = {
     moreReview:'＋ 詳しくレビュー',
     navBtnLabel:'🧭 ルート案内',
     rptBtnLabel:'🚩 問題を報告',
-    lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'未確認', lgPartner:'IBD提携',
+    lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'要確認', lgPartner:'IBD提携',
     hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
   },
   en: {
@@ -729,7 +767,7 @@ const L10N = {
     all:'All', pub:'🌿 Public', ibd:'💚 IBD Partners', free:'💴 Free only',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
-    t1:'Confirmed', t2p:'Likely', t2m:'May Work', t3:'Ask Staff', t4:'Unverified',
+    t1:'Confirmed', t2p:'Likely', t2m:'Likely OK', t3:'Ask Staff', t4:'Check First',
     hours:'Hours', unknown:'Unknown',
     rvTitle:'Reviews', rvNone:'No reviews yet',
     access:'Got in', priv:'Private', paper:'Paper',
@@ -760,7 +798,7 @@ const L10N = {
     moreReview:'+ Write a review',
     navBtnLabel:'🧭 Directions',
     rptBtnLabel:'🚩 Report issue',
-    lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Unverified', lgPartner:'IBD Partner',
+    lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Check First', lgPartner:'IBD Partner',
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
   }
 };
@@ -1026,7 +1064,10 @@ function refreshZoom() {
 /* ═══════════════════════════════════
    DATA LOAD
 ═══════════════════════════════════ */
+let isLoadingCity = false;
 async function loadCity(cityKey) {
+  if (isLoadingCity) { console.log('[LOAD] skip, already loading'); return; }
+  isLoadingCity = true;
   console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
   const ck = `oasis_v4_${cityKey}`;
@@ -1038,31 +1079,33 @@ async function loadCity(cityKey) {
         console.log('[LOAD] cache hit', d.length);
         renderCity(d);
         hideLoading();
+        isLoadingCity = false;
         return;
       }
     }
   } catch(e) { console.warn('[LOAD] cache err', e); }
 
   let toilets = [];
+  const chunkPromises = [];
   for (let i = 0; i < 15; i++) {
-    try {
-      const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
-      console.log(`[LOAD] chunk ${i} exists:`, snap.exists);
-      if (snap.exists) {
-        const arr = snap.data().toilets || [];
-        console.log(`[LOAD] chunk ${i} items:`, arr.length);
-        toilets = toilets.concat(arr);
-      }
-    } catch(e) {
-      console.error(`[LOAD] chunk ${i} error:`, e.code, e.message);
-    }
+    chunkPromises.push(
+      db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get()
+        .then(snap => {
+          if (snap.exists) return snap.data().toilets || [];
+          return [];
+        })
+        .catch(e => { console.error(`[LOAD] chunk ${i} error:`, e.code, e.message); return []; })
+    );
   }
+  const results = await Promise.all(chunkPromises);
+  results.forEach(arr => { toilets = toilets.concat(arr); });
   console.log('[LOAD] total', toilets.length);
   if (toilets.length) {
     try { localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets})); } catch(e) {}
   }
   renderCity(toilets);
   hideLoading();
+  isLoadingCity = false;
 }
 
 function renderCity(toilets) {
@@ -1125,16 +1168,27 @@ function stageExpand(toilets) {
 
 let nearbyExpanded = false;
 
+function getOriginLatLng() {
+  if (searchPin) {
+    const ll = searchPin.getLatLng();
+    return [ll.lat, ll.lng];
+  }
+  if (userLat != null && userLng != null) return [userLat, userLng];
+  return null;
+}
+
 function renderNearby() {
   const el = document.getElementById('nearby');
   const list = document.getElementById('nb-list');
   nearbyExpanded = false;
-  if (userLat == null || userLng == null || !allToilets.length) {
+  const origin = getOriginLatLng();
+  if (!origin || !allToilets.length) {
     el.classList.remove('show');
     return;
   }
+  const [oLat, oLng] = origin;
   const withDist = allToilets
-    .map(t => ({...t, dist: distMeters(userLat, userLng, t.lat, t.lng)}))
+    .map(t => ({...t, dist: distMeters(oLat, oLng, t.lat, t.lng)}))
     .sort((a,b) => a.dist - b.dist);
 
   const staged = stageExpand(withDist).slice(0, 5);
@@ -1178,8 +1232,11 @@ function renderNearbyCards(items) {
 function expandNearby() {
   nearbyExpanded = true;
   const list = document.getElementById('nb-list');
+  const origin = getOriginLatLng();
+  if (!origin) return;
+  const [oLat, oLng] = origin;
   const all = allToilets
-    .map(t => ({...t, dist: distMeters(userLat, userLng, t.lat, t.lng)}))
+    .map(t => ({...t, dist: distMeters(oLat, oLng, t.lat, t.lng)}))
     .sort((a,b) => a.dist - b.dist)
     .slice(0, 20);
   list.innerHTML = renderNearbyCards(all);
@@ -1290,35 +1347,53 @@ async function openDetail(toilet, autoReview) {
   const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
   const freeLabel = toilet.free ? tr('tagFree') : tr('tagPaid');
 
+  // Fetch review stats for face + stars
+  let avgRating = 0, reviewCount = 0;
+  try {
+    const snap = await db.collection('reviews').where('toiletId','==',toilet.id).get();
+    reviewCount = snap.size;
+    if (reviewCount > 0) {
+      let sum = 0, rated = 0;
+      snap.forEach(d => { const r = d.data(); if (r.access) { sum += 3; rated++; } else if (r.closed) { sum += 1; rated++; } else { sum += 1; rated++; } });
+      avgRating = rated ? Math.round(sum / rated) : 0;
+    }
+  } catch(e) {}
+  const faces = ['😶','😟','🙂','😄'];
+  const face = faces[Math.min(avgRating, 3)];
+
+  const stars = [1,2,3].map(i =>
+    `<span class="t-star${i <= avgRating ? ' on' : ''}" data-v="${i}" onclick="rateStar(${i})">⭐</span>`
+  ).join('');
+
   const phraseCard = detailTk === 'T3'
-    ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+    ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:14px;font-weight:600">${tr('askPhrase')}</span>
         <button onclick="navigator.clipboard.writeText('${tr('askPhrase')}');this.textContent='${tr('copied')}'" style="background:var(--indigo);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">${tr('copyBtn')}</button>
       </div>` : '';
 
-  // Info rows
-  let infoRows = '';
-  if (hoursStr) infoRows += `<li><span class="t-info-icon">🕐</span>${hoursStr}</li>`;
-  infoRows += `<li><span class="t-info-icon">💴</span>${freeLabel}</li>`;
-  if (toilet.cat) infoRows += `<li><span class="t-info-icon">📍</span>${toilet.cat}</li>`;
-
   openSheet(`
     <div class="t-header">
-      <div class="t-name">${toilet.name || tr('restroom')}</div>
-      <span class="t-tier-badge" style="${badgeStyle}">${badgeLabel}</span>
+      <div style="flex:1">
+        <div class="t-name">${toilet.name || tr('restroom')}</div>
+        <span class="t-tier-badge" style="${badgeStyle}">${badgeLabel}</span>
+      </div>
+      <div class="t-face">${face}</div>
     </div>
-    <ul class="t-info-list">${infoRows}</ul>
+    <div class="t-stars">${stars}<span class="t-star-count">(${reviewCount})</span></div>
+    <div class="t-info-row">${hoursStr ? `<span class="t-ii">🕐</span>${hoursStr}` : ''}</div>
+    <div class="t-info-row"><span class="t-ii">💴</span>${freeLabel}</div>
     ${phraseCard}
-    <div class="t-actions">
-      <button class="t-act-btn primary" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-act-icon">🧭</span>${tr('navBtnLabel')}</button>
-      <button class="t-act-btn secondary" onclick="openReport()"><span class="t-act-icon">⚠️</span>${tr('rptBtnLabel')}</button>
+    <div class="t-btn-row">
+      <button class="t-btn-3d t-btn-nav" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-btn-icon">📍</span></button>
+      <button class="t-btn-3d t-btn-rpt" onclick="openReport()"><span class="t-btn-icon">🚩</span></button>
     </div>
-    <div class="t-divider"></div>
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">${tr('qkTitle')}</div>
-    <div class="qk-row">
-      <button class="qk-btn qk-yes" onclick="quickVote('yes',this)">${tr('qkYes')}</button>
-      <button class="qk-btn qk-no" onclick="quickVote('no',this)">${tr('qkNo')}</button>
-      <button class="qk-btn qk-closed" onclick="quickVote('closed',this)">${tr('qkClosed')}</button>
+    <div class="t-vote-section">
+      <div class="t-vote-title">${tr('qkTitle')}</div>
+      <div class="t-vote-row">
+        <button class="t-vote-btn t-vote-yes" onclick="quickVote('yes',this)"><span class="t-vote-icon">🚪</span>${tr('qkYes')}</button>
+        <button class="t-vote-btn t-vote-no" onclick="quickVote('no',this)"><span class="t-vote-icon">🙅</span>${tr('qkNo')}</button>
+        <button class="t-vote-btn t-vote-closed" onclick="quickVote('closed',this)"><span class="t-vote-icon">🔒</span>${tr('qkClosed')}</button>
+      </div>
     </div>
     <div id="qk-more-wrap"></div>
     <div id="inline-review" style="display:none;margin-top:12px"></div>
@@ -1326,8 +1401,20 @@ async function openDetail(toilet, autoReview) {
   if (autoReview) setTimeout(() => startInlineReview(), 200);
 }
 
+function rateStar(n) {
+  document.querySelectorAll('.t-star').forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.v) <= n);
+  });
+  if (currentToilet) {
+    db.collection('reviews').add({
+      toiletId: currentToilet.id, cityKey: activeCity,
+      rating: n, ts: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+  }
+}
+
 function quickVote(type, el) {
-  el.parentElement.querySelectorAll('.qk-btn').forEach(b => b.classList.remove('sel'));
+  el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => b.classList.remove('sel'));
   el.classList.add('sel');
   // Save quick access vote
   reviewData = { access: type === 'yes' };
@@ -1533,12 +1620,22 @@ function clearSearchPin() {
   if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
 }
 
+function nearestCity(lat, lng) {
+  let best = null, bestD = Infinity;
+  for (const [k, c] of Object.entries(CITIES)) {
+    const d = Math.hypot(lat - c.c[0], lng - c.c[1]);
+    if (d < bestD) { bestD = d; best = k; }
+  }
+  return best;
+}
+
 async function goToSearchResult(lat, lon) {
   clearSearchPin();
-  const detected = detectCity(lat, lon);
-  if (detected && detected !== activeCity) {
-    activeCity = detected;
-    await loadCity(detected);
+  let target = detectCity(lat, lon);
+  if (!target) target = nearestCity(lat, lon);
+  if (target && target !== activeCity) {
+    activeCity = target;
+    await loadCity(target);
   }
   searchPin = L.marker([lat, lon], { icon: L.divIcon({
     html: '<div class="me-dot"></div>',
@@ -1563,6 +1660,7 @@ function switchTab(tab) {
   }
 }
 
+const PLACES_API_KEY = 'AIzaSyDVuhME-g_3QakgS4cmtWlYR01uns2kG1A';
 let searchTimer = null;
 function searchCity(q) {
   clearTimeout(searchTimer);
@@ -1581,26 +1679,58 @@ function searchCity(q) {
     ).join('');
     return;
   }
-  // Nominatim fallback
+  // Google Places Autocomplete (New) — JP language/region
   searchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`);
+      const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': PLACES_API_KEY,
+        },
+        body: JSON.stringify({
+          input: q,
+          languageCode: 'ja',
+          regionCode: 'JP',
+        }),
+      });
       const data = await res.json();
-      document.getElementById('search-results').innerHTML = data.map(r =>
-        `<div class="nb-card" onclick="goToSearchResult(${r.lat},${r.lon})">
+      const sugs = (data.suggestions || []).filter(s => s.placePrediction).slice(0, 5);
+      if (!sugs.length) {
+        document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">該当なし</div>`;
+        return;
+      }
+      document.getElementById('search-results').innerHTML = sugs.map(s => {
+        const p = s.placePrediction;
+        const text = (p.text && p.text.text) || (p.structuredFormat && p.structuredFormat.mainText && p.structuredFormat.mainText.text) || '';
+        const sub = (p.structuredFormat && p.structuredFormat.secondaryText && p.structuredFormat.secondaryText.text) || '';
+        return `<div class="nb-card" onclick="goToPlaceId('${p.placeId}')">
           <span class="nb-tier">📍</span>
-          <div class="nb-info"><div class="nb-name">${r.display_name.split(',').slice(0,2).join(',')}</div></div>
-        </div>`
-      ).join('');
-    } catch(e) {}
+          <div class="nb-info"><div class="nb-name">${text}</div>${sub ? `<div class="nb-meta">${sub}</div>` : ''}</div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.error('[SEARCH] places error:', e); }
   }, 500);
+}
+
+async function goToPlaceId(placeId) {
+  try {
+    const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}?languageCode=ja&regionCode=JP`, {
+      headers: {
+        'X-Goog-Api-Key': PLACES_API_KEY,
+        'X-Goog-FieldMask': 'location,displayName',
+      },
+    });
+    const data = await res.json();
+    if (data.location) {
+      goToSearchResult(data.location.latitude, data.location.longitude);
+    }
+  } catch(e) { console.error('[SEARCH] place details error:', e); }
 }
 
 /* ═══════════════════════════════════
    LEGEND
 ═══════════════════════════════════ */
-function openLegend() {}
-
 function renderInlineLegend() {
   const el = document.getElementById('legend-inline');
   if (!el) return;
@@ -1611,9 +1741,12 @@ function renderInlineLegend() {
     {color: TIER_CONFIG.colors.T4.to, label: tr('lgAsk')},
     {color: TIER_CONFIG.colors.PARTNER.to, label: tr('lgPartner')},
   ];
-  el.innerHTML = items.map(i =>
+  el.innerHTML = `<div class="lg-dots">${items.map(i =>
+    `<div class="lg-dot" style="background:${i.color}"></div>`
+  ).join('')}</div><div class="lg-expanded">${items.map(i =>
     `<div class="lg-row"><div class="lg-dot" style="background:${i.color}"></div><span class="lg-label">${i.label}</span></div>`
-  ).join('');
+  ).join('')}</div>`;
+  el.onclick = () => el.classList.toggle('expanded');
 }
 
 /* ═══════════════════════════════════
@@ -1680,6 +1813,7 @@ async function init() {
   initMap();
 
   // Attempt auto-locate
+  let geoHandled = false;
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
       const {latitude: lat, longitude: lng} = pos.coords;
@@ -1693,6 +1827,7 @@ async function init() {
       const detected = detectCity(lat, lng);
       if (detected && detected !== activeCity) {
         activeCity = detected;
+        geoHandled = true;
         loadCity(detected);
       } else if (allToilets.length) {
         renderCity(allToilets);
@@ -1702,7 +1837,7 @@ async function init() {
     }, () => {}, {enableHighAccuracy: true, timeout: 8000});
   }
 
-  await loadCity(activeCity);
+  if (!geoHandled) await loadCity(activeCity);
   setTimeout(() => map.invalidateSize(), 150);
 }
 

@@ -17,7 +17,7 @@
 
 ---
 
-## Current state（2026-04-06 v4）
+## Current state（2026-04-08 v4）
 
 ### データ
 - 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
@@ -28,20 +28,38 @@
 - TIER_CONFIG（brands/types/colors/display）
 - Bottom tab 2枚（Near Me / Search）
 - 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
-- 詳細シート：Directions大ボタン→Report→3択投票→展開式レビュー
+- 詳細シート v2（タイミー風）：施設名+Tierバッジ+顔アイコン、星評価3段階、🕐💴情報行、3D shadowボタン、🚪🙅🔒投票
 - JP/ENトグル（localStorage保存、地図上部中央）
-- 赤rippleピン（現在地）
+- 赤rippleピン（現在地、検索結果ピン共用）
 - ロゴ差し替え（oasis-logo.jpg）
 - ローディングblur reveal アニメーション
 - hideLoading display:none修正
-- フィルター・凡例・＋ボタン全部地図内position:absolute
+- フィルターバー横スクロール対応（padding-right:56px、＋ボタンと被らない）
+- 凡例：色ドット5個のみ→タップで展開（toggle式）
 - Tier表示：確実/たぶん使える/要確認/声がけ必要/未確認/IBD提携
-- Search→detectCity→loadCity自動切替（goToSearchResult関数、2026-04-06修正）
+
+### 検索（2026-04-08更新）
+- Google Places Autocomplete (New) `places.googleapis.com/v1/places:autocomplete`
+- リクエスト: `languageCode:'ja'`, `regionCode:'JP'`
+- placeId → Place Details で座標取得
+- detectCity null時は最近傍都市にfallback（nearestCity関数）
+- 徒歩時間: searchPin優先、なければGPS（getOriginLatLng）
+- **Nominatim廃止済み**
+
+### パフォーマンス改善（2026-04-08）
+- `loadCity()`: chunk 0-14を `Promise.all` 並列化（直列3-7秒→1秒以下）
+- `isLoadingCity` フラグで二重実行ガード
+- `init()`: geolocation callback で別都市検出時は末尾の loadCity をスキップ
+- `refreshZoom()`: `isRefreshing` フラグで `zoomend`/`moveend` 無限ループ防止
+- viewport内のみマーカー描画（zoom>=14）
 
 ### 残課題
-1. ~~Search後にloadCity()が呼ばれない~~ → **修正済み（2026-04-06 fe6d753）**
-2. JP/ENが実機で正しく動くか未確認
-3. findoasis.appの実機総合確認が未実施
+1. ~~Search後にloadCity()が呼ばれない~~ → 修正済み（fe6d753）
+2. ~~loading forever（loadCity二重実行）~~ → 修正済み（2026-04-08）
+3. ~~検索→トイレ0件バグ~~ → 修正済み（2026-04-08, nearestCity fallback）
+4. ~~refreshZoom無限ループ~~ → 修正済み（isRefreshing flag）
+5. JP/ENが実機で正しく動くか未確認
+6. findoasis.appの実機総合確認が未実施
 
 ---
 
