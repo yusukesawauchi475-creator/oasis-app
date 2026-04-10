@@ -193,8 +193,13 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   white-space: nowrap;
 }
 .t-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 12px; }
-.t-star { font-size: 20px; cursor: pointer; opacity: 0.25; transition: opacity 0.15s; }
-.t-star.on { opacity: 1; }
+.t-star {
+  font-size: 20px; cursor: pointer;
+  filter: grayscale(1); opacity: 0.25;
+  transition: filter 0.15s, opacity 0.15s, transform 0.1s;
+}
+.t-star.on { filter: grayscale(0); opacity: 1; }
+.t-star:active { transform: scale(0.85); }
 .t-star-count { font-size: 11px; color: var(--text3); margin-left: 6px; }
 .t-info-row {
   display: flex; align-items: center; gap: 6px;
@@ -659,8 +664,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 <div id="map">
   <div id="filter-bar">
     <button class="fchip on" data-f="all" onclick="setFilter('all')"><span id="f-all">すべて</span></button>
-    <button class="fchip"    data-f="pub" onclick="setFilter('pub')"><span id="f-pub">🌿 公衆トイレ</span></button>
-    <button class="fchip"    data-f="free" onclick="setFilter('free')"><span id="f-free">💴 無料のみ</span></button>
+    <button class="fchip"    data-f="t1"  onclick="setFilter('t1')"><span id="f-t1">🩵 今すぐ入れる</span></button>
   </div>
   <div id="legend-inline"></div>
   <button id="add-btn" onclick="openAddToilet()">+</button>
@@ -724,7 +728,7 @@ let LANG = localStorage.getItem('oasis-lang') ||
 const L10N = {
   ja: {
     loading:'読み込み中...', loadCity:'地図を準備しています...',
-    all:'すべて', pub:'🌿 公衆トイレ', free:'💴 無料のみ',
+    all:'すべて', fT1:'🩵 今すぐ入れる',
     pickCity:'都市を選ぶ',
     tagFree:'無料', tagPaid:'有料', tagPartner:'IBD提携',
     t1:'確実', t2p:'たぶん使える', t2m:'たぶん使える', t3:'声がけ必要', t4:'要確認',
@@ -758,12 +762,14 @@ const L10N = {
     moreReview:'＋ 詳しくレビュー',
     navBtnLabel:'🧭 ルート案内',
     rptBtnLabel:'🚩 問題を報告',
+    navBtnLabelShort:'ルート案内',
+    rptBtnLabelShort:'報告',
     lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'要確認', lgPartner:'IBD提携',
     hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
-    all:'All', pub:'🌿 Public', free:'💴 Free only',
+    all:'All', fT1:'🩵 Always Open',
     pickCity:'Choose a city',
     tagFree:'Free', tagPaid:'Fee', tagPartner:'IBD Partner',
     t1:'Confirmed', t2p:'Likely', t2m:'Likely OK', t3:'Ask Staff', t4:'Check First',
@@ -797,6 +803,8 @@ const L10N = {
     moreReview:'+ Write a review',
     navBtnLabel:'🧭 Directions',
     rptBtnLabel:'🚩 Report issue',
+    navBtnLabelShort:'Directions',
+    rptBtnLabelShort:'Report',
     lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Check First', lgPartner:'IBD Partner',
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
   }
@@ -916,9 +924,9 @@ const TIER_CONFIG = {
     T3: ['lodging','restaurant','bar','food'],
   },
   colors: {
-    T1:       { from:'#5BE89A', to:'#1FA855', opacity:1.0 },
-    T2_PLUS:  { from:'#74b9ff', to:'#2980B9', opacity:1.0 },
-    T2_MINUS: { from:'#FDCA6E', to:'#E67E22', opacity:0.75 },
+    T1:       { from:'#C9F0F7', to:'#ADE8F4', opacity:1.0 },
+    T2_PLUS:  { from:'#A8E6B0', to:'#4CAF50', opacity:1.0 },
+    T2_MINUS: { from:'#FDCA6E', to:'#E67E22', opacity:1.0 },
     T3:       { from:'#f9ca24', to:'#d4a00a', opacity:0.65 },
     T4:       { from:'#F28B82', to:'#C0392B', opacity:0.45 },
     PARTNER:  { from:'#e0e0e0', to:'#9e9e9e', opacity:1.0 },
@@ -1002,10 +1010,11 @@ function applyFilter(f) {
   refreshZoom();
 }
 
-let isRefreshing = false;
+let isRefreshing = false, refreshQueued = false;
 function refreshZoom() {
-  if (isRefreshing) return;
+  if (isRefreshing) { refreshQueued = true; return; }
   isRefreshing = true;
+  refreshQueued = false;
   const zoom = map ? map.getZoom() : 15;
   console.log('[ZOOM] refresh zoom:', zoom, 'markers:', allMarkers.length);
   // Remove all current
@@ -1015,8 +1024,7 @@ function refreshZoom() {
 
   // Filter
   let visible = allMarkers.filter(({toilet}) => {
-    if (activeFilter === 'pub')  return toilet.cat === 'Public';
-    if (activeFilter === 'free') return !!toilet.free;
+    if (activeFilter === 't1') return Number(toilet.tier) === 1;
     return true;
   });
 
@@ -1031,6 +1039,7 @@ function refreshZoom() {
         }
       });
       isRefreshing = false;
+      if (refreshQueued) refreshZoom();
     });
     return;
   } else {
@@ -1061,6 +1070,7 @@ function refreshZoom() {
     });
   }
   isRefreshing = false;
+  if (refreshQueued) refreshZoom();
 }
 
 /* ═══════════════════════════════════
@@ -1388,8 +1398,8 @@ async function openDetail(toilet, autoReview) {
     <div class="t-info-row"><span class="t-ii">💴</span>${freeLabel}</div>
     ${phraseCard}
     <div class="t-btn-row">
-      <button class="t-btn-3d t-btn-nav" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-btn-icon">📍</span></button>
-      <button class="t-btn-3d t-btn-rpt" onclick="openReport()"><span class="t-btn-icon">🚩</span></button>
+      <button class="t-btn-3d t-btn-nav" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-btn-icon">📍</span>${tr('navBtnLabelShort')}</button>
+      <button class="t-btn-3d t-btn-rpt" onclick="openReport()"><span class="t-btn-icon">🚩</span>${tr('rptBtnLabelShort')}</button>
     </div>
     <div class="t-vote-section">
       <div class="t-vote-title">${tr('qkTitle')}</div>
@@ -1634,6 +1644,7 @@ function nearestCity(lat, lng) {
 }
 
 async function goToSearchResult(lat, lon) {
+  lat = Number(lat); lon = Number(lon);
   clearSearchPin();
   let target = detectCity(lat, lon);
   if (!target) target = nearestCity(lat, lon);
@@ -1641,10 +1652,16 @@ async function goToSearchResult(lat, lon) {
     activeCity = target;
     await loadCity(target);
   }
-  searchPin = L.marker([lat, lon], { icon: L.divIcon({
-    html: '<div class="me-dot"></div>',
-    className: '', iconSize: [22,22], iconAnchor: [11,11]
-  }) }).addTo(map);
+  // Use circleMarker (SVG-based, no CSS dependency) to ensure visibility
+  searchPin = L.circleMarker([lat, lon], {
+    radius: 12,
+    color: '#fff',
+    weight: 3,
+    fillColor: '#E74C3C',
+    fillOpacity: 1,
+    pane: 'markerPane',
+  }).addTo(map);
+  if (searchPin.bringToFront) searchPin.bringToFront();
   map.flyTo([lat, lon], 15, {duration: 1});
   switchTab('near');
   setTimeout(() => renderNearby(), 500);
@@ -1789,8 +1806,7 @@ function ldmsg(t)      { document.getElementById('ld-msg').textContent = t; }
 ═══════════════════════════════════ */
 function applyLang() {
   document.getElementById('f-all').textContent  = tr('all');
-  document.getElementById('f-pub').innerHTML    = tr('pub');
-  document.getElementById('f-free').innerHTML   = tr('free');
+  document.getElementById('f-t1').innerHTML  = tr('fT1');
   var tnl = document.getElementById('tab-near-label');
   var tsl = document.getElementById('tab-search-label');
   if (tnl) tnl.textContent = tr('nearMe');

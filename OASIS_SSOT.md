@@ -21,22 +21,27 @@
 
 ### データ
 - 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
-- Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む）
+- Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む、lng<-74.0で1,607件確認済）
 - Firestoreチャンク構造: cities/{cityKey}/chunks/{0-14}
+- isPartner:true は0件（IBD ingest未実行）
 
 ### UI/UX実装済み
 - TIER_CONFIG（brands/types/colors/display）
 - Bottom tab 2枚（Near Me / Search）
 - 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
 - 詳細シート v2（タイミー風）：施設名+Tierバッジ+顔アイコン、星評価3段階、🕐💴情報行、3D shadowボタン、🚪🙅🔒投票
+- 詳細シートボタン: JP「📍ルート案内」「🚩報告」/ EN「📍Directions」「🚩Report」
+- 星評価: デフォルトgrayscale(1) opacity(0.25)、タップで光る
 - JP/ENトグル（localStorage保存、地図上部中央）
-- 赤rippleピン（現在地、検索結果ピン共用）
+- 赤rippleピン（現在地 me-dot divIcon）
+- 検索結果ピン: L.circleMarker（SVG、CSS依存なし）
 - ロゴ差し替え（oasis-logo.jpg）
 - ローディングblur reveal アニメーション
 - hideLoading display:none修正
-- フィルターバー横スクロール対応（padding-right:56px、＋ボタンと被らない）
+- フィルターバー: 「すべて / 🟢絶対入れる(tier===1) / 🔵ほぼ入れる(tier1or2)」3つのみ
 - 凡例：色ドット5個のみ→タップで展開（toggle式）
-- Tier表示：確実/たぶん使える/要確認/声がけ必要/未確認/IBD提携
+- Tier表示：確実/たぶん使える/要確認/声がけ必要/要確認/IBD提携
+- IBDフィルター削除済み
 
 ### 検索（2026-04-08更新）
 - Google Places Autocomplete (New) `places.googleapis.com/v1/places:autocomplete`
@@ -51,15 +56,24 @@
 - `isLoadingCity` フラグで二重実行ガード
 - `init()`: geolocation callback で別都市検出時は末尾の loadCity をスキップ
 - `refreshZoom()`: `isRefreshing` フラグで `zoomend`/`moveend` 無限ループ防止
+- `refreshZoom()`: `refreshQueued` フラグでフィルター連打対応（ブロック中の呼び出しを後追い処理）
+- zoom>=14時のbounds取得を `requestAnimationFrame` で遅延（flyTo直後のstale bounds対策）
 - viewport内のみマーカー描画（zoom>=14）
+- localStorageキャッシュ: `oasis_v4_*` → `oasis_v5_*` にバスト
+- キャッシュ読み込み時 `Array.isArray(d) && d.length > 0` ガード
+- emptyState発火条件: `toilets.length===0 && opts.fetchFailed`（chunk全失敗時のみ）
 
 ### 残課題
 1. ~~Search後にloadCity()が呼ばれない~~ → 修正済み（fe6d753）
-2. ~~loading forever（loadCity二重実行）~~ → 修正済み（2026-04-08）
-3. ~~検索→トイレ0件バグ~~ → 修正済み（2026-04-08, nearestCity fallback）
+2. ~~loading forever（loadCity二重実行）~~ → 修正済み
+3. ~~検索→トイレ0件バグ~~ → 修正済み（nearestCity fallback）
 4. ~~refreshZoom無限ループ~~ → 修正済み（isRefreshing flag）
-5. JP/ENが実機で正しく動くか未確認
-6. findoasis.appの実機総合確認が未実施
+5. ~~Weehawkenで「データなし」表示~~ → 修正済み（cache guard, fetchFailed only, rAF bounds, v5バスト）
+6. ~~フィルター押しても変わらない~~ → 修正済み（refreshQueued + 新フィルター3種）
+7. ~~検索→ピン出ない~~ → 修正済み（circleMarker化）
+8. JP/ENが実機で正しく動くか未確認
+9. findoasis.appの実機総合確認が未実施
+10. IBDパートナーingest未実行（isPartner:true 0件）
 
 ---
 
