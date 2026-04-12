@@ -748,7 +748,7 @@ const L10N = {
     emptyState:'この周辺にデータがありません。ズームアウトして探してください。',
     offlineMsg:'接続できません。ネットワークを確認してください。',
     walkMin: n => `徒歩${n}分`,
-    restroom:'トイレ',
+    restroom:'トイレ', spotsHere:'件のスポット',
     showMore: '他{n}件を表示', nearMe:'周辺', search:'検索',
     searchPlaceholder:'都市名・場所名で検索',
     nudgeText:'{name} どうだった？', nudgeBtn:'使えた 👍',
@@ -790,7 +790,7 @@ const L10N = {
     emptyState:'No data in this area. Try zooming out.',
     offlineMsg:'Cannot connect. Please check your network.',
     walkMin: n => `${n} min walk`,
-    restroom:'Restroom',
+    restroom:'Restroom', spotsHere:' spots here',
     showMore: 'Show {n} more', nearMe:'Near Me', search:'Search',
     searchPlaceholder:'Search city or place',
     nudgeText:'{name} — how was it?', nudgeBtn:'Worked! 👍',
@@ -901,7 +901,28 @@ function initMap() {
   }).addTo(map);
   map.on('zoomend', () => refreshZoom());
   map.on('moveend', () => { if (map.getZoom() >= 14) refreshZoom(); });
-  map.on('click', () => clearSearchPin());
+  map.on('click', (e) => {
+    clearSearchPin();
+    // Find overlapping markers within 20px of click
+    if (map.getZoom() < 14) return;
+    const clickPt = map.latLngToContainerPoint(e.latlng);
+    const nearby = allMarkers.filter(o => {
+      if (!o.onMap) return false;
+      const pt = map.latLngToContainerPoint([o.toilet.lat, o.toilet.lng]);
+      return clickPt.distanceTo(pt) <= 20;
+    });
+    if (nearby.length > 1) {
+      const items = nearby.map(({toilet}) => {
+        const tk = tierKey(toilet);
+        const c = TIER_CONFIG.colors[tk] || TIER_CONFIG.colors.T4;
+        return `<div class="nb-card" onclick="closeSheet();openDetail(allToilets.find(x=>x.id==='${toilet.id.replace(/'/g,"\\'")}'))">
+          <div class="li-dot" style="background:${c.to}"></div>
+          <div class="nb-info"><div class="nb-name">${toilet.name || tr('restroom')}</div></div>
+        </div>`;
+      }).join('');
+      openSheet(`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px">${nearby.length}${tr('spotsHere')}</div>${items}`);
+    }
+  });
   addUIOverlays();
   setTimeout(function(){
     var fb = document.getElementById('filter-bar');
@@ -919,7 +940,8 @@ function initMap() {
 const TIER_CONFIG = {
   brands: {
     T1_JP: ['familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン'],
-    T2_PLUS: ['starbucks','mcdonald','dunkin','whole foods','trader joe','target','walmart','peets','mos burger','モスバーガー'],
+    T1_US: ['whole foods','trader joe','target'],
+    T2_PLUS: ['starbucks','mcdonald','dunkin','walmart','peets','mos burger','モスバーガー'],
   },
   types: {
     T1: ['subway_station','train_station','park','library','city_hall','public_bathroom'],
@@ -953,6 +975,7 @@ function tierKey(t) {
   const types = t.types || [];
   // Brand matching
   if (TIER_CONFIG.brands.T1_JP.some(b => name.includes(b))) return 'T1';
+  if (TIER_CONFIG.brands.T1_US.some(b => name.includes(b))) return 'T1';
   if (TIER_CONFIG.brands.T2_PLUS.some(b => name.includes(b))) return 'T2_PLUS';
   // Type matching
   if (types.some(tp => TIER_CONFIG.types.T1.includes(tp))) return 'T1';
@@ -1365,23 +1388,36 @@ async function openDetail(toilet, autoReview) {
   const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
   const freeLabel = toilet.free ? tr('tagFree') : tr('tagPaid');
 
-  // Fetch review stats for face + stars
-  let avgRating = 0, reviewCount = 0;
+  // Fetch review stats for face + stars + vote counts
+  let avgRating = 0, reviewCount = 0, vAccess = 0, vRefused = 0, vClosed = 0;
   try {
     const snap = await db.collection('reviews').where('toiletId','==',toilet.id).get();
     reviewCount = snap.size;
-    if (reviewCount > 0) {
-      let sum = 0, rated = 0;
-      snap.forEach(d => { const r = d.data(); if (r.access) { sum += 3; rated++; } else if (r.closed) { sum += 1; rated++; } else { sum += 1; rated++; } });
-      avgRating = rated ? Math.round(sum / rated) : 0;
-    }
+    let rSum = 0, rCount = 0;
+    snap.forEach(d => {
+      const r = d.data();
+      if (r.rating) { rSum += r.rating; rCount++; }
+      if (r.access === true) vAccess++;
+      if (r.refused === true) vRefused++;
+      if (r.closed === true) vClosed++;
+    });
+    avgRating = rCount ? Math.round(rSum / rCount) : 0;
   } catch(e) {}
   const faces = ['😶','😟','🙂','😄'];
   const face = faces[Math.min(avgRating, 3)];
 
+  const myRating = localStorage.getItem(`rated_${toilet.id}`);
+  const alreadyRated = !!myRating;
+  const alreadyVoted = localStorage.getItem(`voted_${toilet.id}`);
+  const starDisabled = alreadyRated ? 'style="pointer-events:none;opacity:0.4"' : '';
+  const starDisplay = alreadyRated ? parseInt(myRating) : avgRating;
   const stars = [1,2,3].map(i =>
-    `<span class="t-star${i <= avgRating ? ' on' : ''}" data-v="${i}" onclick="rateStar(${i})">⭐</span>`
+    `<span class="t-star${i <= starDisplay ? ' on' : ''}" data-v="${i}" onclick="rateStar(${i})" ${starDisabled}>⭐</span>`
   ).join('');
+
+  const voteCounts = `<div style="display:flex;gap:12px;font-size:11px;color:var(--text3);margin-bottom:8px">
+    <span>🚪 ${vAccess}</span><span>🙅 ${vRefused}</span><span>🔒 ${vClosed}</span>
+  </div>`;
 
   const phraseCard = detailTk === 'T3'
     ? `<div style="background:#FEFBE8;border:1.5px solid #E2D5C0;border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
@@ -1407,10 +1443,11 @@ async function openDetail(toilet, autoReview) {
     </div>
     <div class="t-vote-section">
       <div class="t-vote-title">${tr('qkTitle')}</div>
+      ${voteCounts}
       <div class="t-vote-row">
-        <button class="t-vote-btn t-vote-yes" onclick="quickVote('yes',this)"><span class="t-vote-icon">🚪</span>${tr('qkYes')}</button>
-        <button class="t-vote-btn t-vote-no" onclick="quickVote('no',this)"><span class="t-vote-icon">🙅</span>${tr('qkNo')}</button>
-        <button class="t-vote-btn t-vote-closed" onclick="quickVote('closed',this)"><span class="t-vote-icon">🔒</span>${tr('qkClosed')}</button>
+        <button class="t-vote-btn t-vote-yes${alreadyVoted==='yes'?' sel':''}" onclick="quickVote('yes',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🚪</span>${tr('qkYes')}</button>
+        <button class="t-vote-btn t-vote-no${alreadyVoted==='no'?' sel':''}" onclick="quickVote('no',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🙅</span>${tr('qkNo')}</button>
+        <button class="t-vote-btn t-vote-closed${alreadyVoted==='closed'?' sel':''}" onclick="quickVote('closed',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🔒</span>${tr('qkClosed')}</button>
       </div>
     </div>
     <div id="qk-more-wrap"></div>
@@ -1420,29 +1457,37 @@ async function openDetail(toilet, autoReview) {
 }
 
 function rateStar(n) {
+  if (!currentToilet) return;
+  if (localStorage.getItem(`rated_${currentToilet.id}`)) return;
   document.querySelectorAll('.t-star').forEach(s => {
     s.classList.toggle('on', parseInt(s.dataset.v) <= n);
+    s.style.pointerEvents = 'none';
+    s.style.opacity = '0.4';
   });
-  if (currentToilet) {
-    db.collection('reviews').add({
-      toiletId: currentToilet.id, cityKey: activeCity,
-      rating: n, ts: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-  }
+  localStorage.setItem(`rated_${currentToilet.id}`, String(n));
+  db.collection('reviews').add({
+    toiletId: currentToilet.id, cityKey: activeCity,
+    rating: n, ts: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch(() => {});
+  const ref = db.collection('reviewSummaries').doc(currentToilet.id);
+  ref.set({ ratingTotal: firebase.firestore.FieldValue.increment(n), ratingCount: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
 }
 
 function quickVote(type, el) {
-  el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => b.classList.remove('sel'));
+  if (!currentToilet) return;
+  if (localStorage.getItem(`voted_${currentToilet.id}`)) return;
+  el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => { b.classList.remove('sel'); b.disabled = true; });
   el.classList.add('sel');
-  // Save quick access vote
+  localStorage.setItem(`voted_${currentToilet.id}`, type);
   reviewData = { access: type === 'yes' };
-  if (currentToilet) {
-    db.collection('reviews').add({
-      toiletId: currentToilet.id, cityKey: activeCity,
-      access: type === 'yes', closed: type === 'closed', refused: type === 'no',
-      ts: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
-  }
+  db.collection('reviews').add({
+    toiletId: currentToilet.id, cityKey: activeCity,
+    access: type === 'yes', closed: type === 'closed', refused: type === 'no',
+    ts: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch(() => {});
+  const field = type === 'yes' ? 'access' : (type === 'closed' ? 'closed' : 'refused');
+  const ref = db.collection('reviewSummaries').doc(currentToilet.id);
+  ref.set({ [field]: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
   const wrap = document.getElementById('qk-more-wrap');
   if (wrap) wrap.innerHTML = `<button class="qk-more" onclick="startInlineReview()">${tr('moreReview')}</button>`;
 }
@@ -1633,9 +1678,10 @@ async function submitReview() {
 /* ═══════════════════════════════════
    BOTTOM TABS & SEARCH
 ═══════════════════════════════════ */
-let searchPin = null;
+let searchPin = null, searchArea = null;
 function clearSearchPin() {
   if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
+  if (searchArea) { map.removeLayer(searchArea); searchArea = null; }
 }
 
 function nearestCity(lat, lng) {
@@ -1663,9 +1709,13 @@ async function goToSearchResult(lat, lon) {
     weight: 3,
     fillColor: '#E74C3C',
     fillOpacity: 1,
-    pane: 'markerPane',
+    pane: 'popupPane',
   }).addTo(map);
-  if (searchPin.bringToFront) searchPin.bringToFront();
+  searchArea = L.circle([lat, lon], {
+    radius: 300, color: '#E74C3C', weight: 1.5,
+    fillOpacity: 0.08, opacity: 0.4,
+  }).addTo(map);
+  searchPin.bringToFront();
   map.flyTo([lat, lon], 15, {duration: 1});
   switchTab('near');
   setTimeout(() => renderNearby(), 500);
