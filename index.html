@@ -746,6 +746,7 @@ const L10N = {
     reviews: n => `${n}件のレビュー`,
     askPhrase:'お手洗いをお借りできますか？', copied:'コピーしました', copyBtn:'コピー',
     emptyState:'この周辺にデータがありません。ズームアウトして探してください。',
+    offlineMsg:'接続できません。ネットワークを確認してください。',
     walkMin: n => `徒歩${n}分`,
     restroom:'トイレ',
     showMore: '他{n}件を表示', nearMe:'周辺', search:'検索',
@@ -787,6 +788,7 @@ const L10N = {
     reviews: n => `${n} reviews`,
     askPhrase:'May I use the restroom?', copied:'Copied!', copyBtn:'Copy',
     emptyState:'No data in this area. Try zooming out.',
+    offlineMsg:'Cannot connect. Please check your network.',
     walkMin: n => `${n} min walk`,
     restroom:'Restroom',
     showMore: 'Show {n} more', nearMe:'Near Me', search:'Search',
@@ -1132,7 +1134,7 @@ function renderCity(toilets, opts = {}) {
   console.log('[RENDER] total:', toilets.length, 'zoom:', map?.getZoom());
   toilets.forEach(t => addMarker(t));
   console.log('[RENDER] allMarkers created:', allMarkers.length);
-  if (toilets.length === 0 && opts.fetchFailed) showEmptyState();
+  if (toilets.length === 0 && opts.fetchFailed) showEmptyState(true);
   applyFilter();
   updateHud(activeCity);
   renderNearby();
@@ -1140,12 +1142,12 @@ function renderCity(toilets, opts = {}) {
 }
 
 let _emptyEl = null;
-function showEmptyState() {
+function showEmptyState(offline) {
   removeEmptyState();
   const div = document.createElement('div');
   div.id = 'empty-state';
   div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:800;background:rgba(255,255,255,.92);padding:20px 28px;border-radius:16px;text-align:center;font-size:14px;color:var(--text2);box-shadow:0 2px 16px rgba(0,0,0,.12);max-width:280px';
-  div.textContent = tr('emptyState');
+  div.textContent = offline ? tr('offlineMsg') : tr('emptyState');
   document.body.appendChild(div);
   _emptyEl = div;
 }
@@ -1850,11 +1852,9 @@ async function init() {
         activeCity = detected;
         geoHandled = true;
         loadCity(detected);
-      } else if (allToilets.length) {
-        renderCity(allToilets);
       }
       map.flyTo([lat, lng], 15, {duration: 1.2});
-      setTimeout(() => { map.invalidateSize(); renderNearby(); }, 400);
+      setTimeout(() => { map.invalidateSize(); refreshZoom(); renderNearby(); }, 500);
     }, () => {}, {enableHighAccuracy: true, timeout: 8000});
   }
 
