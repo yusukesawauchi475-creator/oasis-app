@@ -1145,8 +1145,48 @@ async function loadCity(cityKey) {
     try { localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets})); } catch(e) {}
   }
   renderCity(toilets, { fetchFailed: !anyOK });
+  // Load pending_toilets and add as unconfirmed markers
+  loadPendingToilets(cityKey);
   hideLoading();
   isLoadingCity = false;
+}
+
+async function loadPendingToilets(cityKey) {
+  try {
+    const snap = await db.collection('pending_toilets')
+      .where('status', '==', 'pending').get();
+    snap.forEach(doc => {
+      const d = doc.data();
+      const catMap = {public:'Public', store:'Store', facility:'Public'};
+      const t = {
+        id: 'pending_' + doc.id,
+        name: d.name || tr('restroom'),
+        lat: d.lat, lng: d.lng,
+        tier: 1, cat: catMap[d.type] || 'Public',
+        isUnconfirmed: true, free: true,
+      };
+      // Only add if within active city bbox
+      const city = CITIES[cityKey];
+      if (!city) return;
+      const b = city.bbox, p = 0.05;
+      if (t.lat < b.s-p || t.lat > b.n+p || t.lng < b.w-p || t.lng > b.e+p) return;
+      addPendingMarker(t);
+    });
+  } catch(e) { console.warn('[PENDING] load error:', e); }
+}
+
+function addPendingMarker(toilet) {
+  const tk = tierKey(toilet);
+  const c = TIER_CONFIG.colors[tk] || TIER_CONFIG.colors.T4;
+  const m = L.marker([toilet.lat, toilet.lng], {
+    icon: L.divIcon({
+      html: `<div class="mk-dot" style="background:radial-gradient(circle at 35% 30%,${c.from},${c.to});opacity:0.45"></div>`,
+      className: 'mk-icon', iconSize: [36,36], iconAnchor: [18,18]
+    })
+  });
+  m.on('click', () => openDetail(toilet));
+  allMarkers.push({ m, toilet, onMap: false });
+  allToilets.push(toilet);
 }
 
 function renderCity(toilets, opts = {}) {
@@ -1600,15 +1640,46 @@ function setAddType(type, el) {
 
 async function submitAdd(lat, lng) {
   const name = document.getElementById('add-name')?.value || '';
+  const now = new Date().toISOString();
   try {
     await db.collection('pending_toilets').add({
       lat, lng, name, type: addType,
       submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
       status: 'pending',
     });
+    // Notify via EmailJS
+    notifyNewToilet({ name: name || '(unnamed)', lat, lng, type: addType, submittedAt: now });
   } catch(e) { console.error('Add error', e); }
   openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${tr('addDone')}</div></div>`);
   setTimeout(closeSheet, 2000);
+}
+
+// EmailJS config — replace with your IDs from https://www.emailjs.com/
+const EMAILJS_SERVICE  = 'oasis_service';
+const EMAILJS_TEMPLATE = 'template_u1d9vhj';
+const EMAILJS_PUBLIC   = 'WUp_s87vWDzZhpmTv';
+
+function notifyNewToilet(data) {
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE,
+      template_id: EMAILJS_TEMPLATE,
+      user_id: EMAILJS_PUBLIC,
+      template_params: {
+        to_email: 'hello@findoasis.app',
+        subject: '[Oasis] 新規トイレ追加申請',
+        toilet_name: data.name,
+        toilet_lat: data.lat,
+        toilet_lng: data.lng,
+        toilet_note: data.type,
+        city: activeCity || '',
+        reported_at: data.submittedAt,
+        map_link: `https://www.google.com/maps?q=${data.lat},${data.lng}`,
+      },
+    }),
+  }).catch(e => console.warn('[EMAIL] notify failed:', e));
 }
 
 /* ═══════════════════════════════════
