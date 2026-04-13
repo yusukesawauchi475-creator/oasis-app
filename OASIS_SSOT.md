@@ -17,33 +17,40 @@
 
 ---
 
-## Current state（2026-04-08 v4）
+## Current state（2026-04-13 v4）
 
 ### データ
 - 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
 - Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む、lng<-74.0で1,607件確認済）
 - Firestoreチャンク構造: cities/{cityKey}/chunks/{0-14}
 - isPartner:true は0件（IBD ingest未実行）
+- pending_toilets: 1件（City Point Brooklyn, status:pending）
 
 ### UI/UX実装済み
 - TIER_CONFIG（brands/types/colors/display）
 - Bottom tab 2枚（Near Me / Search）
 - 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
-- 詳細シート v2（タイミー風）：施設名+Tierバッジ+顔アイコン、星評価3段階、🕐💴情報行、3D shadowボタン、🚪🙅🔒投票
+- フィルター：「すべて」「🩵今すぐ入れる」2つのみ（tier===1フィルタ）
+- Tier色：T1=水色(#ADE8F4)、T2_PLUS=緑(#4CAF50)、T2_MINUS=オレンジ(#E67E22)、T3=黄、T4=赤
+- 詳細シート v2：顔アイコン(😶😟🙂😄)、星評価3段階(grayscaleデフォルト)、投票件数表示(🚪🙅🔒)、3Dボタン
 - 詳細シートボタン: JP「📍ルート案内」「🚩報告」/ EN「📍Directions」「🚩Report」
-- 星評価: デフォルトgrayscale(1) opacity(0.25)、タップで光る
+- one-vote制限: localStorage `rated_${toiletId}` / `voted_${toiletId}` で重複防止
+- 星評価: 再オープン時に自分の評価値で星表示（localStorageから復元）
+- reviewSummaries: rateStar→ratingTotal/ratingCount、quickVote→access/refused/closed を increment
 - JP/ENトグル（localStorage保存、地図上部中央）
 - 赤rippleピン（現在地 me-dot divIcon）
-- 検索結果ピン: L.circleMarker（SVG、CSS依存なし）
+- 検索結果ピン: L.circleMarker popupPane最前面 + 300m薄円(searchArea)
+- 重複マーカー: 20px以内の重なり→リスト選択UI（spotsHere）
+- pending_toilets: 地図上に薄いマーカー(opacity:0.45)で表示、cityBbox内のみ
+- EmailJS通知: 新規トイレ追加時にhello@findoasis.appへ自動通知
+- Trader Joe's / Whole Foods / Target: T1_USブランドとしてT1に分類
 - ロゴ差し替え（oasis-logo.jpg）
 - ローディングblur reveal アニメーション
-- hideLoading display:none修正
-- フィルターバー: 「すべて / 🟢絶対入れる(tier===1) / 🔵ほぼ入れる(tier1or2)」3つのみ
 - 凡例：色ドット5個のみ→タップで展開（toggle式）
-- Tier表示：確実/たぶん使える/要確認/声がけ必要/要確認/IBD提携
-- IBDフィルター削除済み
+- 詳細シートoverflow-x:hidden + 施設名word-break
+- オフライン時: 「接続できません。ネットワークを確認してください。」表示
 
-### 検索（2026-04-08更新）
+### 検索
 - Google Places Autocomplete (New) `places.googleapis.com/v1/places:autocomplete`
 - リクエスト: `languageCode:'ja'`, `regionCode:'JP'`
 - placeId → Place Details で座標取得
@@ -51,29 +58,33 @@
 - 徒歩時間: searchPin優先、なければGPS（getOriginLatLng）
 - **Nominatim廃止済み**
 
-### パフォーマンス改善（2026-04-08）
+### EmailJS設定
+- Service ID: `oasis_service`
+- Template ID: `template_u1d9vhj`
+- Public Key: `WUp_s87vWDzZhpmTv`
+- 変数: toilet_name, toilet_lat, toilet_lng, toilet_note, city, reported_at, map_link
+- 宛先: hello@findoasis.app
+
+### パフォーマンス
 - `loadCity()`: chunk 0-14を `Promise.all` 並列化（直列3-7秒→1秒以下）
 - `isLoadingCity` フラグで二重実行ガード
 - `init()`: geolocation callback で別都市検出時は末尾の loadCity をスキップ
-- `refreshZoom()`: `isRefreshing` フラグで `zoomend`/`moveend` 無限ループ防止
-- `refreshZoom()`: `refreshQueued` フラグでフィルター連打対応（ブロック中の呼び出しを後追い処理）
-- zoom>=14時のbounds取得を `requestAnimationFrame` で遅延（flyTo直後のstale bounds対策）
+- `refreshZoom()`: `isRefreshing` + `refreshQueued` フラグで無限ループ・連打対応
+- zoom>=14時のbounds取得を `requestAnimationFrame` で遅延
 - viewport内のみマーカー描画（zoom>=14）
-- localStorageキャッシュ: `oasis_v4_*` → `oasis_v5_*` にバスト
+- localStorageキャッシュ: `oasis_v5_*` キー（v4からバスト済み）
 - キャッシュ読み込み時 `Array.isArray(d) && d.length > 0` ガード
 - emptyState発火条件: `toilets.length===0 && opts.fetchFailed`（chunk全失敗時のみ）
 
 ### 残課題
-1. ~~Search後にloadCity()が呼ばれない~~ → 修正済み（fe6d753）
-2. ~~loading forever（loadCity二重実行）~~ → 修正済み
-3. ~~検索→トイレ0件バグ~~ → 修正済み（nearestCity fallback）
-4. ~~refreshZoom無限ループ~~ → 修正済み（isRefreshing flag）
-5. ~~Weehawkenで「データなし」表示~~ → 修正済み（cache guard, fetchFailed only, rAF bounds, v5バスト）
-6. ~~フィルター押しても変わらない~~ → 修正済み（refreshQueued + 新フィルター3種）
-7. ~~検索→ピン出ない~~ → 修正済み（circleMarker化）
-8. JP/ENが実機で正しく動くか未確認
-9. findoasis.appの実機総合確認が未実施
-10. IBDパートナーingest未実行（isPartner:true 0件）
+1. EmailJS通知の動作確認未実施
+2. pending_toilets承認→cities/chunksへの追加パイプライン未実装
+3. admin承認UI未実装
+4. レビュー一覧UI未実装
+5. 投票でtier自動変更未実装
+6. Firestoreセキュリティルール（現状 `allow read, write: if true`）
+7. IBDパートナーingest未実行（isPartner:true 0件）
+8. findoasis.appの実機総合確認が未実施
 
 ---
 
