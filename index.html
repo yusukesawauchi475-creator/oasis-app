@@ -884,9 +884,38 @@ function addUIOverlays() {
     lt.style.cssText = 'position:absolute;top:60px;left:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 4px;display:flex;gap:2px;z-index:1001;border:.5px solid rgba(0,0,0,.1)';
     lt.innerHTML = '<button id="lt-ja" onclick="setLang(\'ja\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">JP</button>'
       + '<button id="lt-en" onclick="setLang(\'en\')" style="padding:3px 8px;border-radius:16px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:sans-serif">EN</button>';
+    lt.addEventListener('click', handleAdminTap);
     mapEl.appendChild(lt);
   }
   applyLang();
+  updateAdminUI();
+}
+
+/* ──── Admin Mode ──── */
+let adminMode = localStorage.getItem('adminMode') === 'true';
+let adminTapCount = 0, adminTapTimer = null;
+function handleAdminTap() {
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1500);
+  if (adminTapCount >= 5) {
+    adminTapCount = 0;
+    adminMode = !adminMode;
+    localStorage.setItem('adminMode', String(adminMode));
+    updateAdminUI();
+    console.log('[ADMIN]', adminMode ? 'ON' : 'OFF');
+  }
+}
+function updateAdminUI() {
+  const btn = document.getElementById('add-btn');
+  if (!btn) return;
+  if (adminMode) {
+    btn.style.background = '#C63C28';
+    btn.style.boxShadow = '0 2px 8px rgba(198,60,40,.5)';
+  } else {
+    btn.style.background = '#1FA855';
+    btn.style.boxShadow = '0 2px 8px rgba(31,168,85,.4)';
+  }
 }
 
 function initMap() {
@@ -1642,16 +1671,49 @@ async function submitAdd(lat, lng) {
   const name = document.getElementById('add-name')?.value || '';
   const now = new Date().toISOString();
   try {
-    await db.collection('pending_toilets').add({
-      lat, lng, name, type: addType,
-      submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      status: 'pending',
-    });
-    // Notify via EmailJS
-    notifyNewToilet({ name: name || '(unnamed)', lat, lng, type: addType, submittedAt: now });
+    if (adminMode) {
+      // Admin: add directly to city chunks
+      await adminDirectAdd(lat, lng, name);
+    } else {
+      // Normal: add to pending
+      await db.collection('pending_toilets').add({
+        lat, lng, name, type: addType,
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'pending',
+      });
+      notifyNewToilet({ name: name || '(unnamed)', lat, lng, type: addType, submittedAt: now });
+    }
   } catch(e) { console.error('Add error', e); }
-  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${tr('addDone')}</div></div>`);
+  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${adminMode ? '直接追加しました' : tr('addDone')}</div></div>`);
   setTimeout(closeSheet, 2000);
+}
+
+async function adminDirectAdd(lat, lng, name) {
+  const toilet = {
+    id: 'admin_' + Date.now(),
+    name: name || 'Restroom',
+    lat, lng,
+    tier: 1, cat: 'Public',
+    free: true, isPartner: false,
+    isUnconfirmed: false, hours: null,
+    source: 'manual',
+  };
+  // Find chunk with fewest items in active city
+  let minIdx = 0, minCount = Infinity;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const snap = await db.collection('cities').doc(activeCity).collection('chunks').doc(`${i}`).get();
+      const count = snap.exists ? (snap.data().toilets || []).length : 0;
+      if (count < minCount) { minCount = count; minIdx = i; }
+    } catch(e) {}
+  }
+  const ref = db.collection('cities').doc(activeCity).collection('chunks').doc(`${minIdx}`);
+  await ref.set({ toilets: firebase.firestore.FieldValue.arrayUnion(toilet) }, { merge: true });
+  // Add to current map immediately
+  allToilets.push(toilet);
+  addMarker(toilet);
+  refreshZoom();
+  console.log('[ADMIN] added to', activeCity, 'chunk', minIdx);
 }
 
 // EmailJS config — replace with your IDs from https://www.emailjs.com/
