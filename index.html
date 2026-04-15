@@ -968,13 +968,13 @@ function initMap() {
 ═══════════════════════════════════ */
 const TIER_CONFIG = {
   brands: {
-    T1_JP: ['familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン'],
     T1_US: ['whole foods','trader joe','target'],
-    T2_PLUS: ['starbucks','mcdonald','dunkin','walmart','peets','mos burger','モスバーガー'],
+    T2_PLUS: ['starbucks','mcdonald','dunkin','walmart','peets','mos burger','モスバーガー',
+              'familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン'],
   },
   types: {
     T1: ['subway_station','train_station','park','library','city_hall','public_bathroom'],
-    T2_PLUS: ['cafe','convenience_store','supermarket','department_store','shopping_mall'],
+    T2_PLUS: ['cafe','convenience_store','supermarket','department_store','shopping_mall','food_court'],
     T2_MINUS: ['transit_station','point_of_interest','establishment'],
     T3: ['lodging','restaurant','bar','food'],
   },
@@ -998,16 +998,26 @@ const TIER_WEIGHT = {T1:5, T2_PLUS:4, T2_MINUS:3, T3:2, T4:1, PARTNER:5};
 /* ═══════════════════════════════════
    MARKERS
 ═══════════════════════════════════ */
+const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha'];
+
 function tierKey(t) {
   if (t.isPartner) return 'PARTNER';
   const name = (t.name || '').toLowerCase();
   const types = t.types || [];
+  const isJP = JP_CITIES.includes(activeCity);
   // Brand matching
-  if (TIER_CONFIG.brands.T1_JP.some(b => name.includes(b))) return 'T1';
   if (TIER_CONFIG.brands.T1_US.some(b => name.includes(b))) return 'T1';
   if (TIER_CONFIG.brands.T2_PLUS.some(b => name.includes(b))) return 'T2_PLUS';
-  // Type matching
-  if (types.some(tp => TIER_CONFIG.types.T1.includes(tp))) return 'T1';
+  // Major US terminals → T1 (have public restrooms)
+  // NYC: Penn Station, Grand Central, Port Authority, Madison Square Garden
+  // Future: Union Station (DC/LA/Chicago), South Station (Boston), 30th St (Philly)
+  const majorTerminals = ['penn station','grand central','port authority','union station','madison square'];
+  if (majorTerminals.some(mt => name.includes(mt))) return 'T1';
+  // Transit — T1 in JP, T4 (hidden) in US/others
+  const transitTypes = ['subway_station','train_station'];
+  if (types.some(tp => transitTypes.includes(tp))) return isJP ? 'T1' : 'T4';
+  // Non-transit T1 types
+  if (types.some(tp => ['park','library','city_hall','public_bathroom'].includes(tp))) return 'T1';
   if (types.some(tp => TIER_CONFIG.types.T2_PLUS.includes(tp))) return 'T2_PLUS';
   if (types.some(tp => TIER_CONFIG.types.T3.includes(tp))) return 'T3';
   if (types.some(tp => TIER_CONFIG.types.T2_MINUS.includes(tp))) return 'T2_MINUS';
@@ -1078,9 +1088,11 @@ function refreshZoom() {
   clusterMarkers.forEach(m => map.removeLayer(m));
   clusterMarkers = [];
 
-  // Filter
+  // Filter — T4 hidden by default, only shown via fallback in stageExpand (nearby list)
   let visible = allMarkers.filter(({toilet}) => {
-    if (activeFilter === 't1') return Number(toilet.tier) === 1;
+    const tk = tierKey(toilet);
+    if (tk === 'T4') return false;
+    if (activeFilter === 't1') return tk === 'T1';
     return true;
   });
 
@@ -1094,6 +1106,7 @@ function refreshZoom() {
           o.m.addTo(map); o.onMap = true;
         }
       });
+      restoreSearchPin();
       isRefreshing = false;
       if (refreshQueued) refreshZoom();
     });
@@ -1125,8 +1138,17 @@ function refreshZoom() {
       clusterMarkers.push(cm);
     });
   }
+  restoreSearchPin();
   isRefreshing = false;
   if (refreshQueued) refreshZoom();
+}
+
+function restoreSearchPin() {
+  if (searchPin) {
+    if (!map.hasLayer(searchPin)) searchPin.addTo(map);
+    searchPin.bringToFront();
+  }
+  if (searchArea && !map.hasLayer(searchArea)) searchArea.addTo(map);
 }
 
 /* ═══════════════════════════════════
