@@ -1074,6 +1074,8 @@ let clusterMarkers = [];
 function applyFilter(f) {
   activeFilter = f || activeFilter;
   refreshZoom();
+  // Ensure searchPin stays visible after filter change (refreshZoom rAF is async)
+  setTimeout(() => restoreSearchPin(), 50);
 }
 
 let isRefreshing = false, refreshQueued = false;
@@ -1145,10 +1147,13 @@ function refreshZoom() {
 
 function restoreSearchPin() {
   if (searchPin) {
-    if (!map.hasLayer(searchPin)) searchPin.addTo(map);
-    searchPin.bringToFront();
+    if (map.hasLayer(searchPin)) map.removeLayer(searchPin);
+    searchPin.addTo(map);
   }
-  if (searchArea && !map.hasLayer(searchArea)) searchArea.addTo(map);
+  if (searchArea) {
+    if (map.hasLayer(searchArea)) map.removeLayer(searchArea);
+    searchArea.addTo(map);
+  }
 }
 
 /* ═══════════════════════════════════
@@ -1857,14 +1862,14 @@ async function goToSearchResult(lat, lon) {
     activeCity = target;
     await loadCity(target);
   }
-  // Use circleMarker (SVG-based, no CSS dependency) to ensure visibility
-  searchPin = L.circleMarker([lat, lon], {
-    radius: 12,
-    color: '#fff',
-    weight: 3,
-    fillColor: '#E74C3C',
-    fillOpacity: 1,
-    pane: 'popupPane',
+  searchPin = L.marker([lat, lon], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="width:28px;height:36px;"><div style="width:28px;height:28px;background:#E74C3C;border:3px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div></div>',
+      iconSize: [28, 36],
+      iconAnchor: [14, 36]
+    }),
+    zIndexOffset: 9999
   }).addTo(map);
   searchArea = L.circle([lat, lon], {
     radius: 300, color: '#E74C3C', weight: 1.5,
