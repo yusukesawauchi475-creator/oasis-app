@@ -13,21 +13,33 @@
 ## ファイル構成
 
 ```
-~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+~/oasis-app/                      ← Git root（GitHub: yusukesawauchi475-creator/oasis-app）
+├── index.html                    ← 本番SPA（2,084行）。Leaflet地図+全UIロジック
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← QAチェックリスト
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
-│   ├── fix_all_cities.py
-│   ├── ingest_kobe.py
-│   └── ...
-├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
-└── supabase/                     ← Supabase functions。.gitignore除外。未使用
+├── .github/workflows/            ← GitHub Actions設定
+└── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+    ├── audit_direct.mjs
+    ├── audit_final.py
+    ├── audit_gcloud.py
+    ├── audit_manhattan.py
+    ├── audit_manhattan_node.mjs
+    ├── audit_rest.py
+    ├── audit_with_auth.mjs
+    ├── fix_all_cities.py
+    ├── fix_bbox_lodging.py
+    ├── fix_manhattan.py
+    ├── fix_t4_promote.py
+    ├── fix_tier3.py
+    ├── ingest_kobe.py
+    ├── ingest_lodging.py
+    └── package.json
 
 ~/oasis-ingest/                   ← Firestore管理スクリプト（別ディレクトリ、Git管理外）
 ├── serviceAccountKey.json        ← Firebase Admin SDK鍵
@@ -41,8 +53,6 @@
 ├── count_partners.js             ← isPartner件数確認
 ├── count_west_manhattan.js       ← Weehawken側データ件数
 └── package.json                  ← firebase-admin依存
-
-~/Downloads/OASIS_SSOT.md         ← SSOTのバックアップ（Downloads内）
 ```
 
 ## 主要コンポーネント（index.html内）
