@@ -974,7 +974,7 @@ const TIER_CONFIG = {
   },
   types: {
     T1: ['subway_station','train_station','park','library','city_hall','public_bathroom'],
-    T2_PLUS: ['cafe','convenience_store','supermarket','department_store','shopping_mall','food_court'],
+    T2_PLUS: ['cafe','convenience_store','supermarket','department_store','food_court'],
     T2_MINUS: ['transit_station','point_of_interest','establishment'],
     T3: ['lodging','restaurant','bar','food'],
   },
@@ -1914,59 +1914,41 @@ function searchCity(q) {
     ).join('');
     return;
   }
-  // Google Places Autocomplete (New) — JP language/region
+  // Google Places Text Search (New) — returns location directly, no Place Details needed
   searchTimer = setTimeout(async () => {
     try {
-      const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': PLACES_API_KEY,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
         },
         body: JSON.stringify({
-          input: q,
+          textQuery: q,
           languageCode: 'ja',
           regionCode: 'JP',
+          maxResultCount: 5,
         }),
       });
       const data = await res.json();
-      alert('[Autocomplete] ' + (data.error ? data.error.message : `${(data.suggestions||[]).length} suggestions`));
-      const sugs = (data.suggestions || []).filter(s => s.placePrediction).slice(0, 5);
-      if (!sugs.length) {
+      const places = (data.places || []).slice(0, 5);
+      if (!places.length) {
         document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">該当なし</div>`;
         return;
       }
-      document.getElementById('search-results').innerHTML = sugs.map(s => {
-        const p = s.placePrediction;
-        const text = (p.text && p.text.text) || (p.structuredFormat && p.structuredFormat.mainText && p.structuredFormat.mainText.text) || '';
-        const sub = (p.structuredFormat && p.structuredFormat.secondaryText && p.structuredFormat.secondaryText.text) || '';
-        return `<div class="nb-card" onclick="goToPlaceId('${p.placeId}')">
+      document.getElementById('search-results').innerHTML = places.map(p => {
+        const name = (p.displayName && p.displayName.text) || '';
+        const addr = p.formattedAddress || '';
+        const lat = p.location ? p.location.latitude : 0;
+        const lng = p.location ? p.location.longitude : 0;
+        return `<div class="nb-card" onclick="goToSearchResult(${lat},${lng})">
           <span class="nb-tier">📍</span>
-          <div class="nb-info"><div class="nb-name">${text}</div>${sub ? `<div class="nb-meta">${sub}</div>` : ''}</div>
+          <div class="nb-info"><div class="nb-name">${name}</div>${addr ? `<div class="nb-meta">${addr.split(',').slice(0,2).join(',')}</div>` : ''}</div>
         </div>`;
       }).join('');
-    } catch(e) { console.error('[SEARCH] places error:', e); }
+    } catch(e) { console.error('[SEARCH] text search error:', e); }
   }, 500);
-}
-
-async function goToPlaceId(placeId) {
-  console.log('[SEARCH] goToPlaceId:', placeId);
-  try {
-    const url = `https://places.googleapis.com/v1/places/${placeId}?languageCode=ja&regionCode=JP`;
-    const res = await fetch(url, {
-      headers: {
-        'X-Goog-Api-Key': PLACES_API_KEY,
-        'X-Goog-FieldMask': 'location,displayName',
-      },
-    });
-    const data = await res.json();
-    alert('[PlaceDetails] ' + JSON.stringify(data).slice(0, 200));
-    if (data.location) {
-      goToSearchResult(data.location.latitude, data.location.longitude);
-    } else if (data.error) {
-      console.error('[SEARCH] API error:', data.error.message);
-    }
-  } catch(e) { console.error('[SEARCH] place details error:', e); }
 }
 
 /* ═══════════════════════════════════
