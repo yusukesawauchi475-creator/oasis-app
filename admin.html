@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oasis Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Zen Maru Gothic', sans-serif; background: #F2EDE4; color: #1A2744; }
+.login { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login h1 { font-size: 22px; margin-bottom: 20px; }
+.login input { padding: 12px 16px; border: 1.5px solid #D5CFC5; border-radius: 10px; font-size: 15px; width: 100%; max-width: 280px; margin-bottom: 12px; font-family: inherit; outline: none; }
+.login input:focus { border-color: #1A2744; }
+.login .btn { width: 100%; max-width: 280px; }
+
+nav { background: #1A2744; display: flex; position: sticky; top: 0; z-index: 10; }
+nav button { flex: 1; padding: 14px 8px; border: none; background: none; color: rgba(255,255,255,.5); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: color .15s; }
+nav button.on { color: #fff; border-bottom: 3px solid #fff; }
+
+.container { max-width: 600px; margin: 0 auto; padding: 16px; }
+.panel { display: none; }
+.panel.show { display: block; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.stat-num { font-size: 24px; font-weight: 700; color: #1A2744; }
+.stat-label { font-size: 10px; color: #8A8578; margin-top: 2px; }
+
+.city-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.city-card { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.city-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.city-meta { font-size: 11px; color: #8A8578; line-height: 1.6; }
+.city-meta .t1 { color: #0097A7; font-weight: 700; }
+.city-meta .t4 { color: #C0392B; }
+
+.card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.card-meta { font-size: 11px; color: #8A8578; margin-bottom: 8px; line-height: 1.5; }
+.card-meta a { color: #3B82F6; }
+
+.btn-row { display: flex; gap: 8px; }
+.btn { padding: 9px 18px; border-radius: 8px; border: none; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .1s, transform .1s; }
+.btn:active { opacity: .8; transform: scale(.96); }
+.btn-approve { background: #2EAF70; color: #fff; }
+.btn-reject { background: #F28B82; color: #fff; }
+.btn-delete { background: #C0392B; color: #fff; font-size: 11px; padding: 7px 14px; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 700; margin-left: 6px; }
+.badge-pending { background: #FEF4E8; color: #9A3412; }
+.badge-approved { background: #EBF7EF; color: #166534; }
+.badge-rejected { background: #FCECEB; color: #991B1B; }
+
+.rv-line { font-size: 11px; color: #8A8578; margin-bottom: 2px; }
+.empty { text-align: center; color: #B0A898; font-size: 13px; padding: 30px 0; }
+.section-title { font-size: 13px; font-weight: 700; color: #8A8578; margin-bottom: 10px; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen" class="login">
+  <h1>Oasis Admin</h1>
+  <input type="password" id="pw" placeholder="パスワード" onkeydown="if(event.key==='Enter')login()">
+  <button class="btn btn-approve" onclick="login()">ログイン</button>
+</div>
+
+<!-- Admin -->
+<div id="admin-screen" style="display:none">
+  <nav>
+    <button class="on" data-tab="dashboard" onclick="switchTab('dashboard')">ダッシュボード</button>
+    <button data-tab="pending" onclick="switchTab('pending')">申請</button>
+    <button data-tab="reviews" onclick="switchTab('reviews')">レビュー</button>
+  </nav>
+  <div class="container">
+    <div id="panel-dashboard" class="panel show"></div>
+    <div id="panel-pending" class="panel"></div>
+    <div id="panel-reviews" class="panel"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: 'AIzaSyDXQabNFmpISVQ4O_yCP6dTyx-UC_uGQLw',
+  authDomain: 'oasis-bde20.firebaseapp.com',
+  projectId: 'oasis-bde20'
+});
+const db = firebase.firestore();
+
+const ADMIN_PW = 'oasis2024admin';
+const EMAILJS_SERVICE = 'oasis_service';
+const EMAILJS_TEMPLATE = 'template_u1d9vhj';
+const EMAILJS_PUBLIC = 'WUp_s87vWDzZhpmTv';
+
+const CITY_KEYS = ['manhattan','tokyo','london','kobe','osaka','sydney','melbourne','brisbane','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha'];
+const CITY_LABELS = {manhattan:'New York',tokyo:'Tokyo',london:'London',kobe:'Kobe',osaka:'Osaka',sydney:'Sydney',melbourne:'Melbourne',brisbane:'Brisbane',fukuoka:'Fukuoka',sapporo:'Sapporo',nagoya:'Nagoya',kyoto:'Kyoto',hiroshima:'Hiroshima',naha:'Naha'};
+
+const CITIES_BBOX = {
+  manhattan:{c:[40.730,-73.950],bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080}},
+  tokyo:{c:[35.690,139.760],bbox:{n:35.820,s:35.530,e:139.920,w:139.580}},
+  osaka:{c:[34.693,135.502],bbox:{n:34.780,s:34.590,e:135.620,w:135.380}},
+  kobe:{c:[34.690,135.195],bbox:{n:34.760,s:34.610,e:135.310,w:135.070}},
+  london:{c:[51.505,-0.090],bbox:{n:51.670,s:51.340,e:0.010,w:-0.250}},
+  sydney:{c:[-33.868,151.209],bbox:{n:-33.730,s:-34.000,e:151.320,w:151.100}},
+  melbourne:{c:[-37.813,144.963],bbox:{n:-37.700,s:-37.920,e:145.080,w:144.840}},
+  brisbane:{c:[-27.467,153.028],bbox:{n:-27.360,s:-27.580,e:153.130,w:152.930}},
+  fukuoka:{c:[33.590,130.400],bbox:{n:33.640,s:33.540,e:130.460,w:130.330}},
+  sapporo:{c:[43.065,141.350],bbox:{n:43.110,s:43.020,e:141.400,w:141.300}},
+  nagoya:{c:[35.170,136.920],bbox:{n:35.210,s:35.130,e:136.970,w:136.870}},
+  kyoto:{c:[35.010,135.770],bbox:{n:35.050,s:34.960,e:135.810,w:135.720}},
+  hiroshima:{c:[34.400,132.470],bbox:{n:34.430,s:34.370,e:132.510,w:132.430}},
+  naha:{c:[26.220,127.680],bbox:{n:26.260,s:26.180,e:127.720,w:127.640}},
+};
+
+const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha'];
+const T1_US = ['whole foods','trader joe','target'];
+const T2_PLUS_BRANDS = ['starbucks','mcdonald','dunkin','walmart','peets','mos burger','モスバーガー','familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン'];
+const MAJOR_TERMINALS = ['penn station','grand central','port authority','union station','madison square'];
+const TRANSIT_TYPES = ['subway_station','train_station'];
+const T1_NON_TRANSIT = ['park','library','city_hall','public_bathroom'];
+const T2P_TYPES = ['cafe','convenience_store','supermarket','department_store','food_court'];
+const T3_TYPES = ['lodging','restaurant','bar','food'];
+const T2M_TYPES = ['transit_station','point_of_interest','establishment'];
+
+function tierKey(t, cityKey) {
+  if (t.isPartner) return 'PARTNER';
+  const name = (t.name || '').toLowerCase();
+  const types = t.types || [];
+  const isJP = JP_CITIES.includes(cityKey);
+  if (T1_US.some(b => name.includes(b))) return 'T1';
+  if (T2_PLUS_BRANDS.some(b => name.includes(b))) return 'T2_PLUS';
+  if (MAJOR_TERMINALS.some(mt => name.includes(mt))) return 'T1';
+  if (types.some(tp => TRANSIT_TYPES.includes(tp))) return isJP ? 'T1' : 'T4';
+  if (types.some(tp => T1_NON_TRANSIT.includes(tp))) return 'T1';
+  if (types.some(tp => T2P_TYPES.includes(tp))) return 'T2_PLUS';
+  if (types.some(tp => T3_TYPES.includes(tp))) return 'T3';
+  if (types.some(tp => T2M_TYPES.includes(tp))) return 'T2_MINUS';
+  const fb = {1:'T1',2:'T2_PLUS',3:'T3',4:'T4'};
+  return fb[t.tier] || 'T4';
+}
+
+function detectCity(lat, lng) {
+  for (const [k, c] of Object.entries(CITIES_BBOX)) {
+    const b = c.bbox, p = 0.05;
+    if (lat >= b.s-p && lat <= b.n+p && lng >= b.w-p && lng <= b.e+p) return k;
+  }
+  let best = 'manhattan', bestD = Infinity;
+  for (const [k, c] of Object.entries(CITIES_BBOX)) {
+    const d = Math.hypot(lat - c.c[0], lng - c.c[1]);
+    if (d < bestD) { bestD = d; best = k; }
+  }
+  return best;
+}
+
+/* ── Auth ── */
+function login() {
+  if (document.getElementById('pw').value === ADMIN_PW) {
+    localStorage.setItem('adminAuth', 'true');
+    showAdmin();
+  } else {
+    document.getElementById('pw').style.borderColor = '#C0392B';
+  }
+}
+function showAdmin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-screen').style.display = 'block';
+  loadDashboard();
+}
+if (localStorage.getItem('adminAuth') === 'true') showAdmin();
+
+/* ── Tabs ── */
+function switchTab(tab) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('show', p.id === 'panel-' + tab));
+  if (tab === 'dashboard') loadDashboard();
+  if (tab === 'pending') loadPending();
+  if (tab === 'reviews') loadReviews();
+}
+
+/* ── Dashboard ── */
+async function loadDashboard() {
+  const panel = document.getElementById('panel-dashboard');
+  panel.innerHTML = '<div class="empty">読み込み中...</div>';
+
+  // Parallel: reviews count, pending count, all cities
+  const [revSnap, pendSnap, cityData] = await Promise.all([
+    db.collection('reviews').get(),
+    db.collection('pending_toilets').where('status','==','pending').get(),
+    loadAllCities(),
+  ]);
+
+  let totalLoc = 0;
+  const cityCards = cityData.map(cd => {
+    totalLoc += cd.total;
+    const t1pct = cd.total ? Math.round(cd.t1 / cd.total * 100) : 0;
+    return `<div class="city-card">
+      <div class="city-name">${CITY_LABELS[cd.key] || cd.key}</div>
+      <div class="city-meta">
+        ${cd.total.toLocaleString()} 件<br>
+        <span class="t1">T1: ${cd.t1} (${t1pct}%)</span><br>
+        <span class="t4">T4非表示: ${cd.t4}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num">${totalLoc.toLocaleString()}</div><div class="stat-label">総ロケーション</div></div>
+      <div class="stat-card"><div class="stat-num">${revSnap.size}</div><div class="stat-label">総レビュー</div></div>
+      <div class="stat-card"><div class="stat-num">${pendSnap.size}</div><div class="stat-label">承認待ち</div></div>
+    </div>
+    <div class="section-title">都市別</div>
+    <div class="city-grid">${cityCards}</div>
+  `;
+}
+
+async function loadAllCities() {
+  const results = [];
+  await Promise.all(CITY_KEYS.map(async key => {
+    let total = 0, t1 = 0, t4 = 0;
+    const promises = [];
+    for (let i = 0; i < 15; i++) {
+      promises.push(db.collection('cities').doc(key).collection('chunks').doc(`${i}`).get());
+    }
+    const snaps = await Promise.all(promises);
+    snaps.forEach(snap => {
+      if (!snap.exists) return;
+      const arr = snap.data().toilets || [];
+      total += arr.length;
+      arr.forEach(t => {
+        const tk = tierKey(t, key);
+        if (tk === 'T1') t1++;
+        if (tk === 'T4') t4++;
+      });
+    });
+    results.push({ key, total, t1, t4 });
+  }));
+  return results.sort((a, b) => b.total - a.total);
+}
+
+/* ── Pending ── */
+async function loadPending() {
+  const panel = document.getElementById('panel-pending');
+  panel.innerHTML = '<div class="empty">読み込み中...</div>';
+  const snap = await db.collection('pending_toilets').orderBy('submittedAt','desc').get();
+  if (snap.empty) { panel.innerHTML = '<div class="empty">申請なし</div>'; return; }
+  panel.innerHTML = '';
+  snap.forEach(doc => {
+    const d = doc.data();
+    const ts = d.submittedAt ? new Date(d.submittedAt.seconds * 1000).toLocaleString('ja-JP') : '不明';
+    const status = d.status || 'pending';
+    const bc = status === 'approved' ? 'badge-approved' : (status === 'rejected' ? 'badge-rejected' : 'badge-pending');
+    panel.innerHTML += `<div class="card">
+      <div class="card-name">${d.name || '(名前なし)'}<span class="badge ${bc}">${status}</span></div>
+      <div class="card-meta">
+        ${d.lat?.toFixed(5)}, ${d.lng?.toFixed(5)} | ${d.type || '?'} | ${ts}<br>
+        <a href="https://www.google.com/maps?q=${d.lat},${d.lng}" target="_blank">Google Maps で確認</a>
+      </div>
+      ${status === 'pending' ? `<div class="btn-row">
+        <button class="btn btn-approve" onclick="approve('${doc.id}',${d.lat},${d.lng},'${(d.name||'').replace(/'/g,"\\'")}')">承認</button>
+        <button class="btn btn-reject" onclick="reject('${doc.id}')">却下</button>
+      </div>` : ''}
+    </div>`;
+  });
+}
+
+async function approve(docId, lat, lng, name) {
+  const cityKey = detectCity(lat, lng);
+  const toilet = { id:'pending_'+docId, name:name||'Restroom', lat, lng, tier:1, cat:'Public', free:true, isPartner:false, isUnconfirmed:false, hours:null, source:'manual' };
+  let minIdx = 0, minCount = Infinity;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const s = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
+      const c = s.exists ? (s.data().toilets||[]).length : 0;
+      if (c < minCount) { minCount = c; minIdx = i; }
+    } catch(e) {}
+  }
+  const ref = db.collection('cities').doc(cityKey).collection('chunks').doc(`${minIdx}`);
+  await ref.set({ toilets: firebase.firestore.FieldValue.arrayUnion(toilet) }, { merge: true });
+  await db.collection('pending_toilets').doc(docId).update({ status: 'approved' });
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ service_id:EMAILJS_SERVICE, template_id:EMAILJS_TEMPLATE, user_id:EMAILJS_PUBLIC,
+      template_params:{ to_email:'hello@findoasis.app', subject:`[Oasis] 承認: ${name}`, toilet_name:name, toilet_lat:lat, toilet_lng:lng, toilet_note:`承認→${cityKey} chunk ${minIdx}`, city:cityKey, reported_at:new Date().toISOString(), map_link:`https://www.google.com/maps?q=${lat},${lng}` }
+    })
+  }).catch(()=>{});
+  loadPending();
+}
+
+async function reject(docId) {
+  await db.collection('pending_toilets').doc(docId).update({ status: 'rejected' });
+  loadPending();
+}
+
+/* ── Reviews ── */
+async function loadReviews() {
+  const panel = document.getElementById('panel-reviews');
+  panel.innerHTML = '<div class="empty">読み込み中...</div>';
+  const snap = await db.collection('reviews').orderBy('ts','desc').limit(50).get();
+  if (snap.empty) { panel.innerHTML = '<div class="empty">レビューなし</div>'; return; }
+  panel.innerHTML = '';
+  snap.forEach(doc => {
+    const d = doc.data();
+    const ts = d.ts ? new Date(d.ts.seconds*1000).toLocaleString('ja-JP') : '不明';
+    let detail = '';
+    if (d.rating) detail += `⭐${d.rating} `;
+    if (d.access === true) detail += '🚪入れた ';
+    if (d.refused === true) detail += '🙅断られた ';
+    if (d.closed === true) detail += '🔒閉鎖中 ';
+    if (d.comment) detail += `💬${d.comment} `;
+    panel.innerHTML += `<div class="card">
+      <div class="rv-line"><strong>${d.toiletId||'?'}</strong> | ${d.cityKey||'?'}</div>
+      <div class="rv-line">${detail||'(データなし)'}</div>
+      <div class="rv-line">${ts}</div>
+      <button class="btn btn-delete" onclick="delReview('${doc.id}')">削除</button>
+    </div>`;
+  });
+}
+
+async function delReview(docId) {
+  if (!confirm('このレビューを削除しますか？')) return;
+  await db.collection('reviews').doc(docId).delete();
+  loadReviews();
+}
+</script>
+</body>
+</html>

@@ -829,7 +829,7 @@ function setLang(l) {
    CITIES
 ═══════════════════════════════════ */
 const CITIES = {
-  manhattan: { ja:'ニューヨーク', en:'New York',    flag:'🗽', c:[40.730,-73.950], z:12, bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080} },
+  manhattan: { ja:'ニューヨーク', en:'New York',    flag:'🗽', c:[40.730,-73.950], z:15, bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080} },
   tokyo:     { ja:'東京',         en:'Tokyo',       flag:'🗼', c:[35.690,139.760], z:12, bbox:{n:35.820,s:35.530,e:139.920,w:139.580} },
   osaka:     { ja:'大阪',         en:'Osaka',       flag:'🐙', c:[34.693,135.502], z:13, bbox:{n:34.780,s:34.590,e:135.620,w:135.380} },
   kobe:      { ja:'神戸',         en:'Kobe',        flag:'⚓', c:[34.690,135.195], z:13, bbox:{n:34.760,s:34.610,e:135.310,w:135.070} },
@@ -1160,12 +1160,21 @@ function restoreSearchPin() {
    DATA LOAD
 ═══════════════════════════════════ */
 let isLoadingCity = false;
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
 async function loadCity(cityKey) {
   if (isLoadingCity) { console.log('[LOAD] skip, already loading'); return; }
   isLoadingCity = true;
   console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
   const ck = `oasis_v5_${cityKey}`;
+
+  // 1. Cache check — instant display
   try {
     const raw = localStorage.getItem(ck);
     if (raw) {
@@ -1174,36 +1183,63 @@ async function loadCity(cityKey) {
         console.log('[LOAD] cache hit', d.length);
         renderCity(d);
         hideLoading();
+        loadPendingToilets(cityKey);
         isLoadingCity = false;
         return;
       }
     }
   } catch(e) { console.warn('[LOAD] cache err', e); }
 
+  // 2. Fetch chunk 0 first for instant partial display
   let toilets = [];
   let anyOK = false;
-  const chunkPromises = [];
-  for (let i = 0; i < 15; i++) {
-    chunkPromises.push(
-      db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get()
-        .then(snap => {
-          anyOK = true;
-          if (snap.exists) return snap.data().toilets || [];
-          return [];
-        })
-        .catch(e => { console.error(`[LOAD] chunk ${i} error:`, e.code, e.message); return []; })
+  try {
+    const snap = await withTimeout(
+      db.collection('cities').doc(cityKey).collection('chunks').doc('0').get(), 10000
+    );
+    anyOK = true;
+    if (snap.exists) {
+      const arr = snap.data().toilets || [];
+      toilets = arr;
+      console.log('[LOAD] chunk 0 fast:', arr.length);
+      renderCity(arr);
+      hideLoading();
+    }
+  } catch(e) { console.error('[LOAD] chunk 0 error:', e.message); }
+
+  // 3. Fetch remaining chunks 1-14 in parallel, add progressively
+  const remaining = [];
+  for (let i = 1; i < 15; i++) {
+    remaining.push(
+      withTimeout(
+        db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get()
+          .then(snap => {
+            anyOK = true;
+            if (snap.exists) {
+              const arr = snap.data().toilets || [];
+              if (arr.length) {
+                toilets = toilets.concat(arr);
+                arr.forEach(t => { addMarker(t); allToilets.push(t); });
+                refreshZoom();
+              }
+              return arr;
+            }
+            return [];
+          }),
+        10000
+      ).catch(e => { console.error(`[LOAD] chunk ${i} ${e.message === 'timeout' ? 'TIMEOUT' : 'error'}:`, e.message); return []; })
     );
   }
-  const results = await Promise.all(chunkPromises);
-  results.forEach(arr => { toilets = toilets.concat(arr); });
+  await Promise.all(remaining);
+
   console.log('[LOAD] total', toilets.length, 'anyOK:', anyOK);
   if (toilets.length) {
     try { localStorage.setItem(ck, JSON.stringify({ts: Date.now(), d: toilets})); } catch(e) {}
   }
-  renderCity(toilets, { fetchFailed: !anyOK });
-  // Load pending_toilets and add as unconfirmed markers
-  loadPendingToilets(cityKey);
+  if (!anyOK) renderCity([], { fetchFailed: true });
   hideLoading();
+  loadPendingToilets(cityKey);
+  renderNearby();
   isLoadingCity = false;
 }
 
