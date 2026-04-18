@@ -1911,7 +1911,6 @@ async function goToSearchResult(lat, lon) {
     radius: 300, color: '#E74C3C', weight: 1.5,
     fillOpacity: 0.08, opacity: 0.4,
   }).addTo(map);
-  searchPin.bringToFront();
   map.flyTo([lat, lon], 15, {duration: 1});
   switchTab('near');
   setTimeout(() => renderNearby(), 500);
@@ -2094,6 +2093,20 @@ async function init() {
 
   if (!geoHandled) await loadCity(activeCity);
   setTimeout(() => map.invalidateSize(), 150);
+
+  // Visitor counter
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const ref = db.collection('stats').doc('visitors');
+    const snap = await ref.get();
+    const d = snap.exists ? snap.data() : {};
+    const isNewDay = d.lastDate !== today;
+    ref.set({
+      total: firebase.firestore.FieldValue.increment(1),
+      today: isNewDay ? 1 : firebase.firestore.FieldValue.increment(1),
+      lastDate: today,
+    }, { merge: true }).catch(() => {});
+  } catch(e) {}
 }
 
 init();

@@ -22,7 +22,7 @@ nav button.on { color: #fff; border-bottom: 3px solid #fff; }
 .panel { display: none; }
 .panel.show { display: block; }
 
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
 .stat-card { background: #fff; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .stat-num { font-size: 24px; font-weight: 700; color: #1A2744; }
 .stat-label { font-size: 10px; color: #8A8578; margin-top: 2px; }
@@ -184,12 +184,14 @@ async function loadDashboard() {
   const panel = document.getElementById('panel-dashboard');
   panel.innerHTML = '<div class="empty">読み込み中...</div>';
 
-  // Parallel: reviews count, pending count, all cities
-  const [revSnap, pendSnap, cityData] = await Promise.all([
+  // Parallel: reviews count, pending count, visitors, all cities
+  const [revSnap, pendSnap, visSnap, cityData] = await Promise.all([
     db.collection('reviews').get(),
     db.collection('pending_toilets').where('status','==','pending').get(),
+    db.collection('stats').doc('visitors').get(),
     loadAllCities(),
   ]);
+  const vis = visSnap.exists ? visSnap.data() : { total: 0, today: 0 };
 
   let totalLoc = 0;
   const cityCards = cityData.map(cd => {
@@ -210,6 +212,7 @@ async function loadDashboard() {
       <div class="stat-card"><div class="stat-num">${totalLoc.toLocaleString()}</div><div class="stat-label">総ロケーション</div></div>
       <div class="stat-card"><div class="stat-num">${revSnap.size}</div><div class="stat-label">総レビュー</div></div>
       <div class="stat-card"><div class="stat-num">${pendSnap.size}</div><div class="stat-label">承認待ち</div></div>
+      <div class="stat-card"><div class="stat-num">${(vis.total||0).toLocaleString()}</div><div class="stat-label">累計訪問者</div><div class="stat-label" style="color:#2EAF70">今日 ${vis.today||0}</div></div>
     </div>
     <div class="section-title">都市別</div>
     <div class="city-grid">${cityCards}</div>
