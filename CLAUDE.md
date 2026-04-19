@@ -33,17 +33,32 @@ deployまでの必須フロー：
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
 ├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── admin.html                    ← Adminダッシュボード（pending承認, レビュー管理, 都市統計）⚠️要認証強化
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← 定期QAチェックリスト（Claude Codeで実行するプロンプト集）
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
-│   ├── fix_all_cities.py
-│   ├── ingest_kobe.py
-│   └── ...
+├── .github/                      ← GitHub Actions / Issue テンプレート等
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+│   ├── audit_direct.mjs          ← Firestore直接監査（ESM）
+│   ├── audit_final.py            ← 最終監査スクリプト
+│   ├── audit_gcloud.py           ← GCloud経由監査
+│   ├── audit_manhattan.py        ← Manhattan限定監査
+│   ├── audit_manhattan_node.mjs  ← Manhattan監査（Node.js版）
+│   ├── audit_rest.py             ← REST API監査
+│   ├── audit_with_auth.mjs       ← 認証付き監査
+│   ├── fix_all_cities.py         ← 全都市データ一括修正
+│   ├── fix_bbox_lodging.py       ← Lodgingのbbox修正
+│   ├── fix_manhattan.py          ← Manhattan限定修正
+│   ├── fix_t4_promote.py         ← T4→上位Tier昇格修正
+│   ├── fix_tier3.py              ← Tier3データ修正
+│   ├── ingest_kobe.py            ← 神戸データインジェスト
+│   ├── ingest_lodging.py         ← Lodgingカテゴリインジェスト
+│   └── package.json              ← firebase-admin依存
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
