@@ -52,6 +52,15 @@ nav button.on { color: #fff; border-bottom: 3px solid #fff; }
 .badge-rejected { background: #FCECEB; color: #991B1B; }
 
 .rv-line { font-size: 11px; color: #8A8578; margin-bottom: 2px; }
+.rv-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.rv-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.rv-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 100px; font-size: 11px; font-weight: 700; }
+.rv-badge-star { background: #FEF4E8; color: #9A3412; }
+.rv-badge-access { background: #EBF7EF; color: #166534; }
+.rv-badge-refused { background: #FCECEB; color: #991B1B; }
+.rv-badge-closed { background: #EDF0FF; color: #4A54C8; }
+.rv-comment { background: #F7F5F0; border-radius: 10px; padding: 8px 12px; font-size: 12px; color: #1A2744; margin: 6px 0; position: relative; }
+.rv-comment::before { content: ''; position: absolute; top: -6px; left: 14px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 6px solid #F7F5F0; }
 .empty { text-align: center; color: #B0A898; font-size: 13px; padding: 30px 0; }
 .section-title { font-size: 13px; font-weight: 700; color: #8A8578; margin-bottom: 10px; letter-spacing: .04em; }
 </style>
@@ -166,9 +175,41 @@ function login() {
 function showAdmin() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('admin-screen').style.display = 'block';
+  handleUrlAction();
   loadDashboard();
 }
 if (localStorage.getItem('adminAuth') === 'true') showAdmin();
+
+/* ── URL Action (email link) ── */
+async function handleUrlAction() {
+  const params = new URLSearchParams(window.location.search);
+  const action = params.get('action');
+  const id = params.get('id');
+  if (!action || !id) return;
+  // Clear URL params
+  window.history.replaceState({}, '', window.location.pathname);
+  try {
+    const doc = await db.collection('pending_toilets').doc(id).get();
+    if (!doc.exists) { showActionResult('申請が見つかりません', false); return; }
+    const d = doc.data();
+    if (d.status !== 'pending') { showActionResult(`既に${d.status}済みです`, false); return; }
+    if (action === 'approve') {
+      await approve(id, d.lat, d.lng, d.name || '');
+      showActionResult('承認完了', true);
+    } else if (action === 'reject') {
+      await reject(id);
+      showActionResult('却下完了', true);
+    }
+  } catch(e) { showActionResult('エラー: ' + e.message, false); }
+}
+
+function showActionResult(msg, ok) {
+  const div = document.createElement('div');
+  div.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15);${ok ? 'background:#EBF7EF;color:#166534' : 'background:#FCECEB;color:#991B1B'}`;
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
 
 /* ── Tabs ── */
 function switchTab(tab) {
@@ -298,26 +339,63 @@ async function reject(docId) {
 }
 
 /* ── Reviews ── */
+let _toiletCache = {};
+
+async function resolveToiletName(toiletId, cityKey) {
+  if (_toiletCache[toiletId]) return _toiletCache[toiletId];
+  if (!cityKey) return null;
+  try {
+    for (let i = 0; i < 15; i++) {
+      const snap = await db.collection('cities').doc(cityKey).collection('chunks').doc(`${i}`).get();
+      if (!snap.exists) continue;
+      const found = (snap.data().toilets || []).find(t => t.id === toiletId);
+      if (found) { _toiletCache[toiletId] = found; return found; }
+    }
+  } catch(e) {}
+  return null;
+}
+
 async function loadReviews() {
   const panel = document.getElementById('panel-reviews');
   panel.innerHTML = '<div class="empty">読み込み中...</div>';
   const snap = await db.collection('reviews').orderBy('ts','desc').limit(50).get();
   if (snap.empty) { panel.innerHTML = '<div class="empty">レビューなし</div>'; return; }
+
+  // Collect unique cityKeys to prefetch
+  const cityKeys = new Set();
+  const reviews = [];
+  snap.forEach(doc => { const d = doc.data(); reviews.push({ id: doc.id, ...d }); if (d.cityKey) cityKeys.add(d.cityKey); });
+
+  // Prefetch all toilets for involved cities (cache them)
+  await Promise.all([...cityKeys].map(async ck => {
+    for (let i = 0; i < 15; i++) {
+      try {
+        const s = await db.collection('cities').doc(ck).collection('chunks').doc(`${i}`).get();
+        if (s.exists) (s.data().toilets || []).forEach(t => { _toiletCache[t.id] = t; });
+      } catch(e) {}
+    }
+  }));
+
   panel.innerHTML = '';
-  snap.forEach(doc => {
-    const d = doc.data();
+  reviews.forEach(d => {
     const ts = d.ts ? new Date(d.ts.seconds*1000).toLocaleString('ja-JP') : '不明';
-    let detail = '';
-    if (d.rating) detail += `⭐${d.rating} `;
-    if (d.access === true) detail += '🚪入れた ';
-    if (d.refused === true) detail += '🙅断られた ';
-    if (d.closed === true) detail += '🔒閉鎖中 ';
-    if (d.comment) detail += `💬${d.comment} `;
+    const t = _toiletCache[d.toiletId];
+    const name = t ? t.name : (d.toiletId || '?');
+    const mapLink = t ? `<a href="https://www.google.com/maps?q=${t.lat},${t.lng}" target="_blank" style="font-size:11px;color:#3B82F6">地図で確認</a>` : '';
+
+    let badges = '';
+    if (d.rating) badges += `<span class="rv-badge rv-badge-star">⭐ ${d.rating}</span>`;
+    if (d.access === true) badges += '<span class="rv-badge rv-badge-access">🚪 入れた</span>';
+    if (d.refused === true) badges += '<span class="rv-badge rv-badge-refused">🙅 断られた</span>';
+    if (d.closed === true) badges += '<span class="rv-badge rv-badge-closed">🔒 閉鎖中</span>';
+    const comment = d.comment ? `<div class="rv-comment">${d.comment}</div>` : '';
+
     panel.innerHTML += `<div class="card">
-      <div class="rv-line"><strong>${d.toiletId||'?'}</strong> | ${d.cityKey||'?'}</div>
-      <div class="rv-line">${detail||'(データなし)'}</div>
-      <div class="rv-line">${ts}</div>
-      <button class="btn btn-delete" onclick="delReview('${doc.id}')">削除</button>
+      <div class="rv-name">${name}</div>
+      <div class="rv-line">${d.cityKey||'?'} | ${ts} ${mapLink}</div>
+      ${badges ? `<div class="rv-badges">${badges}</div>` : '<div class="rv-line">(データなし)</div>'}
+      ${comment}
+      <button class="btn btn-delete" onclick="delReview('${d.id}')">削除</button>
     </div>`;
   });
 }

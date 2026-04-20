@@ -769,6 +769,7 @@ const L10N = {
     rptBtnLabelShort:'報告',
     lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'要確認', lgPartner:'IBD提携',
     hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
+    pageTitle:'Oasis — いますぐ、トイレ。', adminAdded:'直接追加しました', noResults:'該当なし',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
@@ -811,6 +812,7 @@ const L10N = {
     rptBtnLabelShort:'Report',
     lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Check First', lgPartner:'IBD Partner',
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
+    pageTitle:'Oasis — Find a Restroom Now.', adminAdded:'Added directly.', noResults:'No results',
   }
 };
 let T = L10N[LANG];
@@ -931,6 +933,9 @@ function initMap() {
   map.on('zoomend', () => refreshZoom());
   map.on('moveend', () => { if (map.getZoom() >= 14) refreshZoom(); });
   map.on('click', (e) => {
+    // Don't clear searchPin if click is on UI controls (filter bar, legend, add btn)
+    const t = e.originalEvent && e.originalEvent.target;
+    if (t && t.closest && t.closest('#filter-bar, #legend-inline, #add-btn, #controls')) return;
     clearSearchPin();
     // Find overlapping markers within 20px of click
     if (map.getZoom() < 14) return;
@@ -1075,7 +1080,7 @@ function applyFilter(f) {
   activeFilter = f || activeFilter;
   refreshZoom();
   // Ensure searchPin stays visible after filter change (refreshZoom rAF is async)
-  setTimeout(() => restoreSearchPin(), 50);
+  setTimeout(() => restoreSearchPin(), 300);
 }
 
 let isRefreshing = false, refreshQueued = false;
@@ -1739,15 +1744,15 @@ async function submitAdd(lat, lng) {
       await adminDirectAdd(lat, lng, name);
     } else {
       // Normal: add to pending
-      await db.collection('pending_toilets').add({
+      const docRef = await db.collection('pending_toilets').add({
         lat, lng, name, type: addType,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
         status: 'pending',
       });
-      notifyNewToilet({ name: name || '(unnamed)', lat, lng, type: addType, submittedAt: now });
+      notifyNewToilet({ name: name || '(unnamed)', lat, lng, type: addType, submittedAt: now, docId: docRef.id });
     }
   } catch(e) { console.error('Add error', e); }
-  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${adminMode ? '直接追加しました' : tr('addDone')}</div></div>`);
+  openSheet(`<div class="rv-thanks" style="padding:24px 0"><div class="te" style="font-size:32px">✅</div><div class="tt" style="font-size:16px">${adminMode ? tr('adminAdded') : tr('addDone')}</div></div>`);
   setTimeout(closeSheet, 2000);
 }
 
@@ -1798,7 +1803,7 @@ function notifyNewToilet(data) {
         toilet_name: data.name,
         toilet_lat: data.lat,
         toilet_lng: data.lng,
-        toilet_note: data.type,
+        toilet_note: `${data.type}\n\n承認: https://findoasis.app/admin.html?action=approve&id=${data.docId}\n却下: https://findoasis.app/admin.html?action=reject&id=${data.docId}`,
         city: activeCity || '',
         reported_at: data.submittedAt,
         map_link: `https://www.google.com/maps?q=${data.lat},${data.lng}`,
@@ -1969,7 +1974,7 @@ function searchCity(q) {
       const data = await res.json();
       const places = (data.places || []).slice(0, 5);
       if (!places.length) {
-        document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">該当なし</div>`;
+        document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">${tr('noResults')}</div>`;
         return;
       }
       document.getElementById('search-results').innerHTML = places.map(p => {
@@ -2042,6 +2047,7 @@ function ldmsg(t)      { document.getElementById('ld-msg').textContent = t; }
    UPDATE UI STRINGS
 ═══════════════════════════════════ */
 function applyLang() {
+  document.title = tr('pageTitle');
   document.getElementById('f-all').textContent  = tr('all');
   document.getElementById('f-t1').innerHTML  = tr('fT1');
   var tnl = document.getElementById('tab-near-label');
