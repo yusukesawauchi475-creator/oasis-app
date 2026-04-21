@@ -32,18 +32,32 @@ deployまでの必須フロー：
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,121行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理ダッシュボード（pending承認/レビュー確認）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← 毎晩実行するQAチェックプロンプト
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
-├── firestore.rules               ← Firestoreセキュリティルール
+├── firestore.rules               ← Firestoreセキュリティルール（現状 allow write: if true — 要修正 #9）
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+│   ├── audit_direct.mjs
+│   ├── audit_final.py
+│   ├── audit_gcloud.py
+│   ├── audit_manhattan.py
+│   ├── audit_manhattan_node.mjs
+│   ├── audit_rest.py
+│   ├── audit_with_auth.mjs
 │   ├── fix_all_cities.py
+│   ├── fix_bbox_lodging.py
+│   ├── fix_manhattan.py
+│   ├── fix_t4_promote.py
+│   ├── fix_tier3.py
 │   ├── ingest_kobe.py
-│   └── ...
+│   ├── ingest_lodging.py
+│   └── package.json
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -83,9 +97,9 @@ deployまでの必須フロー：
 | rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
 | submitReview | 1610-1640 | 詳細レビュー送信 |
 | submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| searchCity | 1895-1992 | Google Places Text Search (New) → goToSearchResult(lat,lon) |
+| goToSearchResult | 1897-1922 | searchPin設置, detectCity→loadCity, flyTo |
+| init() | 2071-2118 | 起動フロー（geolocation, loadCity, invalidateSize）注: race condition あり issue #11 |
 
 ## Firestore構造
 
