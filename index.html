@@ -1964,12 +1964,19 @@ function searchCity(q) {
           'X-Goog-Api-Key': PLACES_API_KEY,
           'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
         },
-        body: JSON.stringify({
+        body: JSON.stringify(Object.assign({
           textQuery: q,
           languageCode: 'ja',
           regionCode: 'JP',
           maxResultCount: 5,
-        }),
+        }, activeCity && CITIES[activeCity] ? {
+          locationBias: {
+            circle: {
+              center: { latitude: CITIES[activeCity].c[0], longitude: CITIES[activeCity].c[1] },
+              radius: 50000.0
+            }
+          }
+        } : {})),
       });
       const data = await res.json();
       const places = (data.places || []).slice(0, 5);
