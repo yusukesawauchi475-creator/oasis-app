@@ -32,9 +32,11 @@ deployまでの必須フロー：
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,128行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理者ダッシュボード（pending承認, レビュー管理, 統計）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← 毎晩実行するルーティンQAチェックプロンプト
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
@@ -67,25 +69,32 @@ deployまでの必須フロー：
 
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
-| CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
-| HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| CSS | 17-628 | 全スタイル（シート, マーカー, フィルター, 投票等） |
+| HTML | 630-728 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
+| L10N | 730-820 | JP/EN翻訳辞書 |
+| Firebase init | 854-880 | firebase.initializeApp, Firestore接続 |
+| addUIOverlays | 881-922 | lang-toggle, adminモード |
+| initMap() | 923-973 | Leaflet初期化, zoom/moveendイベント |
+| TIER_CONFIG | 974-1007 | brands, types, colors, display設定 |
+| tierKey() | 1008-1033 | Tier判定ロジック（JP/US分岐, majorTerminals） |
+| makeIcon/cluster | 1034-1063 | マーカーアイコン生成 |
+| applyFilter() | 1079-1086 | フィルター適用（searchPin復元含む） |
+| refreshZoom() | 1087-1152 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1175-1250 | Firestore chunk並列fetch, キャッシュ(v5) |
+| loadPendingToilets() | 1251-1288 | pending_toilets取得・マーカー表示 |
+| renderCity() | 1289-1304 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1358-1425 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| selectCity() | 1426-1449 | 都市切り替え（HUD更新, loadCity） |
+| openDetail() | 1513-1595 | 詳細シート（星, 顔, 投票, 3Dボタン） |
+| rateStar/quickVote | 1596-1631 | 星評価・投票（localStorage制限, reviewSummaries） |
+| submitAdd | 1738-1821 | トイレ追加（admin直接 or pending+EmailJS）, notifyNewToilet |
+| startInlineReview | 1822-1882 | インラインレビューフロー |
+| submitReview | 1854-1882 | 詳細レビュー送信 |
+| goToSearchResult | 1897-1923 | 検索結果 → loadCity → map.setView |
+| searchCity | 1940-2003 | Google Places Autocomplete (New) |
+| renderInlineLegend | 2004-2024 | Tier凡例レンダリング |
+| openPicker() | 2025-2044 | 都市選択ピッカー |
+| init() | 2078-2127 | 起動フロー（geolocation, loadCity, invalidateSize） |
 
 ## Firestore構造
 
