@@ -4,14 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Oasis — いますぐ、トイレ。</title>
+<meta name="description" content="IBD・IBS患者のためのトイレ発見アプリ。40,000件以上のトイレをすぐ地図で確認。">
+<meta property="og:title" content="Oasis — いますぐ、トイレ。">
+<meta property="og:description" content="IBD・IBS患者のためのトイレ発見アプリ。40,000件以上のトイレをすぐ地図で確認。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://findoasis.app">
+<meta property="og:image" content="https://findoasis.app/oasis-logo.jpg">
 <meta name="theme-color" content="#1A2744">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Oasis">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <link rel="icon" href="oasis-logo.jpg">
 <link rel="apple-touch-icon" href="oasis-logo.jpg">
+<link rel="manifest" href="/manifest.json">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho+B1:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -1663,7 +1672,12 @@ function listTapDetail(toilet) {
 ═══════════════════════════════════ */
 let lastNavToilet = null;
 function nav(lat, lng) {
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`, '_blank');
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
+  if (searchPin) {
+    const o = searchPin.getLatLng();
+    url += `&origin=${o.lat},${o.lng}`;
+  }
+  window.open(url, '_blank');
 }
 function navWithNudge(lat, lng) {
   lastNavToilet = currentToilet;
@@ -1883,6 +1897,7 @@ let searchPin = null, searchArea = null;
 function clearSearchPin() {
   if (searchPin) { map.removeLayer(searchPin); searchPin = null; }
   if (searchArea) { map.removeLayer(searchArea); searchArea = null; }
+  updateHud(activeCity);
 }
 
 function nearestCity(lat, lng) {
@@ -1894,7 +1909,7 @@ function nearestCity(lat, lng) {
   return best;
 }
 
-async function goToSearchResult(lat, lon) {
+async function goToSearchResult(lat, lon, name) {
   lat = Number(lat); lon = Number(lon);
   clearSearchPin();
   let target = detectCity(lat, lon);
@@ -1916,6 +1931,10 @@ async function goToSearchResult(lat, lon) {
     radius: 300, color: '#E74C3C', weight: 1.5,
     fillOpacity: 0.08, opacity: 0.4,
   }).addTo(map);
+  if (name) {
+    document.getElementById('hud-flag').textContent = '📍';
+    document.getElementById('hud-name').textContent = name;
+  }
   map.flyTo([lat, lon], 15, {duration: 1});
   switchTab('near');
   setTimeout(() => renderNearby(), 500);
@@ -1989,7 +2008,8 @@ function searchCity(q) {
         const addr = p.formattedAddress || '';
         const lat = p.location ? p.location.latitude : 0;
         const lng = p.location ? p.location.longitude : 0;
-        return `<div class="nb-card" onclick="goToSearchResult(${lat},${lng})">
+        const safeName = name.replace(/'/g, "\\'");
+        return `<div class="nb-card" onclick="goToSearchResult(${lat},${lng},'${safeName}')">
           <span class="nb-tier">📍</span>
           <div class="nb-info"><div class="nb-name">${name}</div>${addr ? `<div class="nb-meta">${addr.split(',').slice(0,2).join(',')}</div>` : ''}</div>
         </div>`;
