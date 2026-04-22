@@ -1361,6 +1361,7 @@ function getOriginLatLng() {
     return [ll.lat, ll.lng];
   }
   if (userLat != null && userLng != null) return [userLat, userLng];
+  if (activeCity && CITIES[activeCity]) return CITIES[activeCity].c;
   return null;
 }
 
