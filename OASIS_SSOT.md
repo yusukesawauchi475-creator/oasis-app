@@ -17,46 +17,73 @@
 
 ---
 
-## Current state（2026-04-13 v4）
+## Current state（2026-04-22 v4）
 
 ### データ
 - 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
 - Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む、lng<-74.0で1,607件確認済）
 - Firestoreチャンク構造: cities/{cityKey}/chunks/{0-14}
 - isPartner:true は0件（IBD ingest未実行）
-- pending_toilets: 1件（City Point Brooklyn, status:pending）
+- pending_toilets: City Point Brooklyn → status:approved（chunk 11に追加済み）
+- JP都市名日本語化: 7,600件変換済み（英語名73.4%→33.6%に改善）、残り6,434件は店名等でそのまま
 
 ### UI/UX実装済み
 - TIER_CONFIG（brands/types/colors/display）
 - Bottom tab 2枚（Near Me / Search）
 - 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
 - フィルター：「すべて」「🩵今すぐ入れる」2つのみ（tier===1フィルタ）
-- Tier色：T1=水色(#ADE8F4)、T2_PLUS=緑(#4CAF50)、T2_MINUS=オレンジ(#E67E22)、T3=黄、T4=赤
+- Tier色：T1=水色(#ADE8F4)、T2_PLUS=緑(#4CAF50)、T2_MINUS=オレンジ(#E67E22)、T3=黄、T4=赤（非表示）
 - 詳細シート v2：顔アイコン(😶😟🙂😄)、星評価3段階(grayscaleデフォルト)、投票件数表示(🚪🙅🔒)、3Dボタン
 - 詳細シートボタン: JP「📍ルート案内」「🚩報告」/ EN「📍Directions」「🚩Report」
 - one-vote制限: localStorage `rated_${toiletId}` / `voted_${toiletId}` で重複防止
 - 星評価: 再オープン時に自分の評価値で星表示（localStorageから復元）
 - reviewSummaries: rateStar→ratingTotal/ratingCount、quickVote→access/refused/closed を increment
 - JP/ENトグル（localStorage保存、地図上部中央）
+- L10N: 85キーJP/EN完全一致。pageTitle/adminAdded/noResults対応済み
 - 赤rippleピン（現在地 me-dot divIcon）
-- 検索結果ピン: L.circleMarker popupPane最前面 + 300m薄円(searchArea)
+- 検索結果ピン: L.marker divIcon ティアドロップ型（#FF3B30、zIndexOffset:9999）+ 300m薄円(searchArea)
+- 検索時に都市ピルを「📍 場所名」に変更、クリア時に元の都市名に復帰
 - 重複マーカー: 20px以内の重なり→リスト選択UI（spotsHere）
+- フィルターボタンクリック時のsearchPin保護（map click bubbling防止）
+- restoreSearchPin: remove→addTo方式、rAF/cluster両パス+applyFilter後300msで復元
 - pending_toilets: 地図上に薄いマーカー(opacity:0.45)で表示、cityBbox内のみ
-- EmailJS通知: 新規トイレ追加時にhello@findoasis.appへ自動通知
+- EmailJS通知: 新規トイレ追加時にhello@findoasis.appへ承認/却下リンク付きメール送信
+- adminモード: JP/ENトグル5回タップで起動、+ボタン赤化、chunk直接書込み
 - Trader Joe's / Whole Foods / Target: T1_USブランドとしてT1に分類
+- JPコンビニ（ファミマ/ローソン/セブン）: T2_PLUSに分類
+- US小駅（subway/train）: T4（非表示）。majorTerminals（Penn/GC/PA/Union/MSG）はT1維持
+- food_court: T2_PLUSに追加。shopping_mall: T2_PLUSから削除
 - ロゴ差し替え（oasis-logo.jpg）
 - ローディングblur reveal アニメーション
 - 凡例：色ドット5個のみ→タップで展開（toggle式）
 - 詳細シートoverflow-x:hidden + 施設名word-break
 - オフライン時: 「接続できません。ネットワークを確認してください。」表示
+- ルート案内: searchPinがある場合はsearchPin座標をorigin設定
+- 距離表示: 60分超 or 10km超はkm表示に切替
+- GPS未許可時のfallback: activeCity中心座標で距離計算
+- OGタグ: description/title/image/url/type
+- PWA: manifest.json + mobile-web-app-capable + apple-mobile-web-app-title
+- 訪問者カウンター: stats/visitors（total/today/lastDate）
+
+### admin.html（findoasis.app/admin.html）
+- パスワード保護: `oasis2024admin` → localStorage adminAuth
+- 3タブ: ダッシュボード / 申請 / レビュー
+- ダッシュボード: 総ロケーション / 総レビュー / 承認待ち / 累計訪問者(+今日)
+- 都市別カード: 件数 / T1件数+割合 / T4非表示件数
+- 申請タブ: pending_toilets一覧、承認→chunk追加+EmailJS通知、却下→status更新
+- レビュータブ: トイレ名表示（chunkからID検索）、Google Mapsリンク、バッジ形式、コメント吹き出し、削除ボタン
+- URLアクション: ?action=approve&id=XXX でメールから直接承認/却下
+- tierKey()ロジックをindex.htmlと同一で複製
 
 ### 検索
-- Google Places Autocomplete (New) `places.googleapis.com/v1/places:autocomplete`
-- リクエスト: `languageCode:'ja'`, `regionCode:'JP'`
-- placeId → Place Details で座標取得
+- Google Places Text Search (New) `places.googleapis.com/v1/places:searchText`
+- FieldMask: `places.displayName,places.formattedAddress,places.location`
+- リクエスト: `languageCode:'ja'`, `regionCode:'JP'`, `maxResultCount:5`
+- locationBias: activeCity中心50km circle
+- 座標を直接取得（Place Details不要、1 API callで完結）
 - detectCity null時は最近傍都市にfallback（nearestCity関数）
-- 徒歩時間: searchPin優先、なければGPS（getOriginLatLng）
-- **Nominatim廃止済み**
+- 徒歩時間: searchPin優先→GPS→cityCenter（getOriginLatLng）
+- **Nominatim廃止済み**、**Autocomplete→Text Search移行済み**
 
 ### EmailJS設定
 - Service ID: `oasis_service`
@@ -64,27 +91,33 @@
 - Public Key: `WUp_s87vWDzZhpmTv`
 - 変数: toilet_name, toilet_lat, toilet_lng, toilet_note, city, reported_at, map_link
 - 宛先: hello@findoasis.app
+- 申請メールに承認/却下リンク付き（admin.html?action=approve&id=XXX）
+
+### GitHub Actions
+- `.github/workflows/nightly-qa.yml`: 毎日JST 2:00にClaude APIでQA実行
+- `OASIS_QA.md`: 10項目チェックリスト
+- Critical/High → GitHub Issue自動作成
+- 要: ANTHROPIC_API_KEY secret設定
 
 ### パフォーマンス
-- `loadCity()`: chunk 0-14を `Promise.all` 並列化（直列3-7秒→1秒以下）
+- progressive loading: chunk 0先行表示→残り1-14並列fetch→各chunk完了時にaddMarker+refreshZoom
 - `isLoadingCity` フラグで二重実行ガード
 - `init()`: geolocation callback で別都市検出時は末尾の loadCity をスキップ
 - `refreshZoom()`: `isRefreshing` + `refreshQueued` フラグで無限ループ・連打対応
 - zoom>=14時のbounds取得を `requestAnimationFrame` で遅延
-- viewport内のみマーカー描画（zoom>=14）
-- localStorageキャッシュ: `oasis_v5_*` キー（v4からバスト済み）
+- viewport内のみマーカー描画（zoom>=14）、T4は常時非表示
+- localStorageキャッシュ: `oasis_v6_*` キー（v5からバスト済み）
 - キャッシュ読み込み時 `Array.isArray(d) && d.length > 0` ガード
 - emptyState発火条件: `toilets.length===0 && opts.fetchFailed`（chunk全失敗時のみ）
+- 各chunkに10秒タイムアウト（withTimeout）
 
 ### 残課題
-1. EmailJS通知の動作確認未実施
-2. pending_toilets承認→cities/chunksへの追加パイプライン未実装
-3. admin承認UI未実装
-4. レビュー一覧UI未実装
-5. 投票でtier自動変更未実装
-6. Firestoreセキュリティルール（現状 `allow read, write: if true`）
-7. IBDパートナーingest未実行（isPartner:true 0件）
-8. findoasis.appの実機総合確認が未実施
+1. I know IBD Partner ingest未実行（isPartner:true 0件）
+2. 投票でtier自動変更未実装
+3. Firestoreセキュリティルール（現状 `allow read, write: if true`）
+4. 英語名残り6,434件の処理（店名等、優先度低）
+5. Manhattan bbox拡張（Weehawken/Hoboken追加ingest検討）
+6. マーケ開始（X @oasis_app_web 初投稿）
 
 ---
 
