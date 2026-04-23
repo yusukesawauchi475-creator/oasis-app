@@ -974,7 +974,7 @@ const TIER_CONFIG = {
     T1: ['subway_station','train_station','park','library','city_hall','public_bathroom'],
     T2_PLUS: ['cafe','convenience_store','supermarket','department_store','food_court'],
     T2_MINUS: ['transit_station','point_of_interest','establishment'],
-    T3: ['lodging','restaurant','bar','food'],
+    T3: ['restaurant','bar','food'],
   },
   colors: {
     T1:       { from:'#C9F0F7', to:'#ADE8F4', opacity:1.0 },
@@ -1011,9 +1011,15 @@ function tierKey(t) {
   // Future: Union Station (DC/LA/Chicago), South Station (Boston), 30th St (Philly)
   const majorTerminals = ['penn station','grand central','port authority','union station','madison square'];
   if (majorTerminals.some(mt => name.includes(mt))) return 'T1';
-  // Transit — T1 in JP, T4 (hidden) in US/others
+  // Transit — subway/train: T1 in JP, T4 elsewhere
   const transitTypes = ['subway_station','train_station'];
   if (types.some(tp => transitTypes.includes(tp))) return isJP ? 'T1' : 'T4';
+  // Bus stops — always T4 (no restrooms at bus stops)
+  if (types.some(tp => tp === 'bus_stop' || tp === 'transit_stop')) return 'T4';
+  // Lodging — T4 (guests only)
+  if (types.includes('lodging')) return 'T4';
+  // POI-only — T4 (too vague)
+  if (types.length === 1 && types[0] === 'point_of_interest') return 'T4';
   // Non-transit T1 types
   if (types.some(tp => ['park','library','city_hall','public_bathroom'].includes(tp))) return 'T1';
   if (types.some(tp => TIER_CONFIG.types.T2_PLUS.includes(tp))) return 'T2_PLUS';
@@ -1610,6 +1616,7 @@ function rateStar(n) {
   }).catch(() => {});
   const ref = db.collection('reviewSummaries').doc(currentToilet.id);
   ref.set({ ratingTotal: firebase.firestore.FieldValue.increment(n), ratingCount: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
+  notifyNewReview(`⭐ ${n}`);
 }
 
 function quickVote(type, el) {
@@ -1627,6 +1634,7 @@ function quickVote(type, el) {
   const field = type === 'yes' ? 'access' : (type === 'closed' ? 'closed' : 'refused');
   const ref = db.collection('reviewSummaries').doc(currentToilet.id);
   ref.set({ [field]: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
+  notifyNewReview(type === 'yes' ? '🚪 入れた' : (type === 'closed' ? '🔒 閉鎖中' : '🙅 断られた'));
   const wrap = document.getElementById('qk-more-wrap');
   if (wrap) wrap.innerHTML = `<button class="qk-more" onclick="startInlineReview()">${tr('moreReview')}</button>`;
 }
@@ -1819,6 +1827,31 @@ function notifyNewToilet(data) {
   }).catch(e => console.warn('[EMAIL] notify failed:', e));
 }
 
+function notifyNewReview(detail) {
+  if (!currentToilet) return;
+  const t = currentToilet;
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE,
+      template_id: EMAILJS_TEMPLATE,
+      user_id: EMAILJS_PUBLIC,
+      template_params: {
+        to_email: 'hello@findoasis.app',
+        subject: '[Oasis] 新規レビュー',
+        toilet_name: t.name || 'Restroom',
+        toilet_lat: t.lat,
+        toilet_lng: t.lng,
+        toilet_note: detail,
+        city: activeCity || '',
+        reported_at: new Date().toISOString(),
+        map_link: `https://www.google.com/maps?q=${t.lat},${t.lng}`,
+      },
+    }),
+  }).catch(() => {});
+}
+
 /* ═══════════════════════════════════
    INLINE REVIEW (in detail sheet)
 ═══════════════════════════════════ */
@@ -1880,6 +1913,7 @@ async function submitReview() {
         tx.update(ref, { total:(d.total||0)+1, access:(d.access||0)+inc.access, priv:(d.priv||0)+inc.priv, paper:(d.paper||0)+inc.paper });
       }
     });
+    notifyNewReview(`詳細レビュー: access=${reviewData.access} priv=${reviewData.priv} paper=${reviewData.paper}${comment ? ' 💬'+comment : ''}`);
   } catch(e) { console.error('Review error', e); }
 }
 
