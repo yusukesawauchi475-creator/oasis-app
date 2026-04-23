@@ -1186,7 +1186,7 @@ async function loadCity(cityKey) {
   isLoadingCity = true;
   console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
-  const ck = `oasis_v5_${cityKey}`;
+  const ck = `oasis_v6_${cityKey}`;
 
   // 1. Cache check — instant display
   try {
@@ -1336,7 +1336,15 @@ function distMeters(lat1, lng1, lat2, lng2) {
 }
 
 function fmtDist(m) {
+  if (m > 10000) {
+    const km = (m / 1000).toFixed(1);
+    return `${km}km`;
+  }
   const min = Math.ceil(m / 80);
+  if (min > 60) {
+    const km = (m / 1000).toFixed(1);
+    return `${km}km`;
+  }
   return T.walkMin(min);
 }
 
