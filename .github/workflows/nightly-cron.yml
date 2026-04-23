@@ -1,0 +1,34 @@
+name: Nightly Reports Aggregation
+
+on:
+  schedule:
+    - cron: '0 18 * * *'  # UTC 18:00 = JST 03:00
+  workflow_dispatch: {}
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd scripts
+          npm init -y 2>/dev/null || true
+          npm install firebase-admin
+
+      - name: Create service account key
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+        run: echo "$FIREBASE_SA_KEY" > scripts/serviceAccountKey.json
+
+      - name: Run reports aggregation
+        run: node scripts/reports_aggregate.js
+
+      - name: Cleanup
+        run: rm -f scripts/serviceAccountKey.json

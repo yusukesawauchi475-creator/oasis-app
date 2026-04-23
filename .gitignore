@@ -7,3 +7,7 @@ supabase/
 
 # Local Netlify folder
 .netlify
+
+# Secrets
+serviceAccountKey.json
+*.key
