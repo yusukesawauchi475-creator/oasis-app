@@ -17,7 +17,7 @@
 
 ---
 
-## Current state（2026-04-22 v4）
+## Current state（2026-04-22 v4.1）
 
 ### データ
 - 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
@@ -64,12 +64,16 @@
 - OGタグ: description/title/image/url/type
 - PWA: manifest.json + mobile-web-app-capable + apple-mobile-web-app-title
 - 訪問者カウンター: stats/visitors（total/today/lastDate）
+- レビュー通知メール: rateStar/quickVote/submitReview → notifyNewReview() → EmailJS
+- L10N: 70キーJP/EN完全一致（未使用15キー削除済み）
 
 ### admin.html（findoasis.app/admin.html）
 - パスワード保護: `oasis2024admin` → localStorage adminAuth
 - 3タブ: ダッシュボード / 申請 / レビュー
-- ダッシュボード: 総ロケーション / 総レビュー / 承認待ち / 累計訪問者(+今日)
-- 都市別カード: 件数 / T1件数+割合 / T4非表示件数
+- ダッシュボード: 総ロケーション / 総レビュー / 承認待ち(+承認/却下内訳) / 累計訪問者(+今日)
+- レビューTOP5ランキング（トイレ名+maps link）
+- 都市別カード: 件数+レビュー数 / T1件数+割合 / T4非表示件数
+- 更新日時表示
 - 申請タブ: pending_toilets一覧、承認→chunk追加+EmailJS通知、却下→status更新
 - レビュータブ: トイレ名表示（chunkからID検索）、Google Mapsリンク、バッジ形式、コメント吹き出し、削除ボタン
 - URLアクション: ?action=approve&id=XXX でメールから直接承認/却下
@@ -92,6 +96,7 @@
 - 変数: toilet_name, toilet_lat, toilet_lng, toilet_note, city, reported_at, map_link
 - 宛先: hello@findoasis.app
 - 申請メールに承認/却下リンク付き（admin.html?action=approve&id=XXX）
+- レビュー通知メール: [Oasis] 新規レビュー（トイレ名/評価/maps link）
 
 ### GitHub Actions
 - `.github/workflows/nightly-qa.yml`: 毎日JST 2:00にClaude APIでQA実行
@@ -105,19 +110,43 @@
 - `init()`: geolocation callback で別都市検出時は末尾の loadCity をスキップ
 - `refreshZoom()`: `isRefreshing` + `refreshQueued` フラグで無限ループ・連打対応
 - zoom>=14時のbounds取得を `requestAnimationFrame` で遅延
-- viewport内のみマーカー描画（zoom>=14）、T4は常時非表示
+- viewport内のみマーカー描画（zoom>=14）、T4は常時非表示（bus_stop/lodging/POI-only含む）
+- tier logic改善: bus_stop→T4、lodging→T4、POI単体→T4、T3からlodging除外
+- 10都市動作シミュレーション検証済み（detectCity/loadCity/renderNearby/filter全OK）
 - localStorageキャッシュ: `oasis_v6_*` キー（v5からバスト済み）
 - キャッシュ読み込み時 `Array.isArray(d) && d.length > 0` ガード
 - emptyState発火条件: `toilets.length===0 && opts.fetchFailed`（chunk全失敗時のみ）
 - 各chunkに10秒タイムアウト（withTimeout）
 
+### Firestoreルール（簡易版、2026-04-22適用済み）
+- reviews: read+create+delete（admin.html用）、update不可
+- pending_toilets: read+create+update（承認用）、delete不可
+- cities: read+write（承認chunk追加用）
+- reports: read+create
+- stats: read+create+update
+- TODO: マーケ前にFirebase Auth導入してcustom claim admin判定に移行
+
 ### 残課題
 1. I know IBD Partner ingest未実行（isPartner:true 0件）
 2. 投票でtier自動変更未実装
-3. Firestoreセキュリティルール（現状 `allow read, write: if true`）
+3. Firebase Auth導入（マーケ開始前必須）
 4. 英語名残り6,434件の処理（店名等、優先度低）
 5. Manhattan bbox拡張（Weehawken/Hoboken追加ingest検討）
 6. マーケ開始（X @oasis_app_web 初投稿）
+
+### 明日のタスク（優先順）
+1. admin dashboard可視化強化（訪問者グラフ日別/週別、レビューマップ可視化、都市別マップリンク）
+2. 検索ワード拡張（10倍化）- Google Places Autocomplete追加検討
+3. Manhattan bbox拡張（Weehawken/Hoboken/Jersey City）
+4. Firebase Auth導入（マーケ開始前必須）
+5. レビュー設問の再設計（3問タップ式に変更検討）
+   - 現状: ⭐5評価 + 入れた/断られた/閉鎖中 + 詳細(access/priv/paper) + コメント
+   - 問題: IBD患者はトイレ出た直後にサッと答えたい（体調悪い状態）
+   - 提案: 3問タップ式（自由記述なし、1タップ×3で完了）
+     Q1. 入れましたか？ → 🚪入れた / 🙅断られた / 🔒閉鎖中
+     Q2. 清潔さ → ✨きれい / 🆗普通 / 🚫汚い
+     Q3. 紙・広さ → 📄紙あり+広い / 📄紙のみ / 🚫紙なしor狭い
+   - 追加調査要: 「紙」「広さ」「音漏れ」「待ち時間」のうちIBDコミュニティで最重要な2項目を絞る（X/Redditで軽く調査）
 
 ---
 
