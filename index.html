@@ -203,15 +203,7 @@ html, body { height: 100%; margin: 0; overflow: hidden;
   font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
   white-space: nowrap;
 }
-.t-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 12px; }
-.t-star {
-  font-size: 20px; cursor: pointer;
-  filter: grayscale(1); opacity: 0.25;
-  transition: filter 0.15s, opacity 0.15s, transform 0.1s;
-}
-.t-star.on { filter: grayscale(0); opacity: 1; }
-.t-star:active { transform: scale(0.85); }
-.t-star-count { font-size: 11px; color: var(--text3); margin-left: 6px; }
+.t-review-count { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
 .t-info-row {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--text2); margin-bottom: 4px;
@@ -257,6 +249,13 @@ html, body { height: 100%; margin: 0; overflow: hidden;
 .t-vote-no     { background: #FFE8E8; color: #C03030; box-shadow: 0 4px 0 #F5AAAA; }
 .t-vote-closed { background: #EDF0FF; color: #4A54C8; box-shadow: 0 4px 0 #AABABF; }
 .t-vote-btn.sel { transform: translateY(4px); box-shadow: none; opacity: 0.85; }
+.t-q-done { text-align: center; font-size: 11px; color: #2EAF70; font-weight: 700; padding: 8px 0; }
+.t-vote-clean { background: #E8F5E9; color: #2E7D32; box-shadow: 0 4px 0 #A5D6A7; }
+.t-vote-ok    { background: #FFF8E1; color: #F57F17; box-shadow: 0 4px 0 #FFE082; }
+.t-vote-dirty { background: #FFEBEE; color: #C62828; box-shadow: 0 4px 0 #EF9A9A; }
+.t-vote-paper-good  { background: #E3F2FD; color: #1565C0; box-shadow: 0 4px 0 #90CAF9; }
+.t-vote-paper-only  { background: #FFF3E0; color: #E65100; box-shadow: 0 4px 0 #FFCC80; }
+.t-vote-paper-none  { background: #F3E5F5; color: #6A1B9A; box-shadow: 0 4px 0 #CE93D8; }
 
 /* legacy tag classes kept for report/other sheets */
 .tag {
@@ -764,8 +763,10 @@ const L10N = {
     rptWrongPlace:'場所が違う', rptDirty:'不衛生だった', rptOther:'その他',
     rptDone:'レポートを受け付けました',
     rvComment:'コメント（任意）',
-    qkTitle:'使えましたか？', qkYes:'✓ 入れた', qkNo:'✗ 断られた', qkClosed:'🔒 閉鎖中',
-    moreReview:'＋ 詳しくレビュー',
+    qkTitle:'使えましたか？', qkYes:'入れた', qkNo:'断られた', qkClosed:'閉鎖中',
+    q2Title:'清潔さは？', q2Clean:'きれい', q2Ok:'普通', q2Dirty:'汚い',
+    q3Title:'紙・広さは？', q3Good:'紙あり+広い', q3Only:'紙のみ', q3None:'紙なし/狭い',
+    reviewDone:'ありがとう！',
     navBtnLabelShort:'ルート案内',
     rptBtnLabelShort:'報告',
     lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'要確認', lgPartner:'IBD提携',
@@ -799,8 +800,10 @@ const L10N = {
     rptWrongPlace:'Wrong location', rptDirty:'Unsanitary', rptOther:'Other',
     rptDone:'Report received',
     rvComment:'Comment (optional)',
-    qkTitle:'Did you get in?', qkYes:'✓ Got in', qkNo:'✗ Refused', qkClosed:'🔒 Closed',
-    moreReview:'+ Write a review',
+    qkTitle:'Did you get in?', qkYes:'Got in', qkNo:'Refused', qkClosed:'Closed',
+    q2Title:'Cleanliness?', q2Clean:'Clean', q2Ok:'OK', q2Dirty:'Dirty',
+    q3Title:'Paper & space?', q3Good:'Paper+spacious', q3Only:'Paper only', q3None:'No paper/tight',
+    reviewDone:'Thanks!',
     navBtnLabelShort:'Directions',
     rptBtnLabelShort:'Report',
     lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Check First', lgPartner:'IBD Partner',
@@ -1533,32 +1536,23 @@ async function openDetail(toilet, autoReview) {
   const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
   const freeLabel = toilet.free ? tr('tagFree') : tr('tagPaid');
 
-  // Fetch review stats for face + stars + vote counts
-  let avgRating = 0, reviewCount = 0, vAccess = 0, vRefused = 0, vClosed = 0;
+  // Fetch review stats
+  let reviewCount = 0, vAccess = 0, vRefused = 0, vClosed = 0;
   try {
     const snap = await db.collection('reviews').where('toiletId','==',toilet.id).get();
     reviewCount = snap.size;
-    let rSum = 0, rCount = 0;
     snap.forEach(d => {
       const r = d.data();
-      if (r.rating) { rSum += r.rating; rCount++; }
       if (r.access === true) vAccess++;
       if (r.refused === true) vRefused++;
       if (r.closed === true) vClosed++;
     });
-    avgRating = rCount ? Math.round(rSum / rCount) : 0;
   } catch(e) {}
+  const accessRate = reviewCount ? Math.round(vAccess / reviewCount * 100) : 0;
   const faces = ['😶','😟','🙂','😄'];
-  const face = faces[Math.min(avgRating, 3)];
+  const face = faces[accessRate >= 80 ? 3 : (accessRate >= 50 ? 2 : (accessRate > 0 ? 1 : 0))];
 
-  const myRating = localStorage.getItem(`rated_${toilet.id}`);
-  const alreadyRated = !!myRating;
   const alreadyVoted = localStorage.getItem(`voted_${toilet.id}`);
-  const starDisabled = alreadyRated ? 'style="pointer-events:none;opacity:0.4"' : '';
-  const starDisplay = alreadyRated ? parseInt(myRating) : avgRating;
-  const stars = [1,2,3].map(i =>
-    `<span class="t-star${i <= starDisplay ? ' on' : ''}" data-v="${i}" onclick="rateStar(${i})" ${starDisabled}>⭐</span>`
-  ).join('');
 
   const voteCounts = `<div style="display:flex;gap:12px;font-size:11px;color:var(--text3);margin-bottom:8px">
     <span>🚪 ${vAccess}</span><span>🙅 ${vRefused}</span><span>🔒 ${vClosed}</span>
@@ -1578,7 +1572,7 @@ async function openDetail(toilet, autoReview) {
       </div>
       <div class="t-face">${face}</div>
     </div>
-    <div class="t-stars">${stars}<span class="t-star-count">(${reviewCount})</span></div>
+    <div class="t-review-count">${reviewCount > 0 ? `${reviewCount} ${LANG==='ja'?'件のレビュー':'reviews'}` : ''}</div>
     <div class="t-info-row">${hoursStr ? `<span class="t-ii">🕐</span>${hoursStr}` : ''}</div>
     <div class="t-info-row"><span class="t-ii">💴</span>${freeLabel}</div>
     ${phraseCard}
@@ -1586,57 +1580,81 @@ async function openDetail(toilet, autoReview) {
       <button class="t-btn-3d t-btn-nav" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-btn-icon">📍</span>${tr('navBtnLabelShort')}</button>
       <button class="t-btn-3d t-btn-rpt" onclick="openReport()"><span class="t-btn-icon">🚩</span>${tr('rptBtnLabelShort')}</button>
     </div>
-    <div class="t-vote-section">
+    <div class="t-vote-section" id="review-section">
       <div class="t-vote-title">${tr('qkTitle')}</div>
       ${voteCounts}
-      <div class="t-vote-row">
-        <button class="t-vote-btn t-vote-yes${alreadyVoted==='yes'?' sel':''}" onclick="quickVote('yes',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🚪</span>${tr('qkYes')}</button>
-        <button class="t-vote-btn t-vote-no${alreadyVoted==='no'?' sel':''}" onclick="quickVote('no',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🙅</span>${tr('qkNo')}</button>
-        <button class="t-vote-btn t-vote-closed${alreadyVoted==='closed'?' sel':''}" onclick="quickVote('closed',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🔒</span>${tr('qkClosed')}</button>
+      <div class="t-vote-row" id="q1-row">
+        <button class="t-vote-btn t-vote-yes${alreadyVoted?' sel':''}" onclick="answerQ1('yes',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🚪</span>${tr('qkYes')}</button>
+        <button class="t-vote-btn t-vote-no${alreadyVoted?' sel':''}" onclick="answerQ1('no',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🙅</span>${tr('qkNo')}</button>
+        <button class="t-vote-btn t-vote-closed${alreadyVoted?' sel':''}" onclick="answerQ1('closed',this)" ${alreadyVoted?'disabled':''}><span class="t-vote-icon">🔒</span>${tr('qkClosed')}</button>
       </div>
+      <div id="q2-wrap"></div>
+      <div id="q3-wrap"></div>
     </div>
-    <div id="qk-more-wrap"></div>
-    <div id="inline-review" style="display:none;margin-top:12px"></div>
   `);
-  if (autoReview) setTimeout(() => startInlineReview(), 200);
 }
 
-function rateStar(n) {
-  if (!currentToilet) return;
-  if (localStorage.getItem(`rated_${currentToilet.id}`)) return;
-  document.querySelectorAll('.t-star').forEach(s => {
-    s.classList.toggle('on', parseInt(s.dataset.v) <= n);
-    s.style.pointerEvents = 'none';
-    s.style.opacity = '0.4';
-  });
-  localStorage.setItem(`rated_${currentToilet.id}`, String(n));
-  db.collection('reviews').add({
-    toiletId: currentToilet.id, cityKey: activeCity,
-    rating: n, ts: firebase.firestore.FieldValue.serverTimestamp(),
-  }).catch(() => {});
-  const ref = db.collection('reviewSummaries').doc(currentToilet.id);
-  ref.set({ ratingTotal: firebase.firestore.FieldValue.increment(n), ratingCount: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
-  notifyNewReview(`⭐ ${n}`);
-}
+/* ── 3-Question Review System ── */
+let _reviewAnswers = {};
 
-function quickVote(type, el) {
+function answerQ1(type, el) {
   if (!currentToilet) return;
   if (localStorage.getItem(`voted_${currentToilet.id}`)) return;
   el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => { b.classList.remove('sel'); b.disabled = true; });
   el.classList.add('sel');
-  localStorage.setItem(`voted_${currentToilet.id}`, type);
-  reviewData = { access: type === 'yes' };
+  _reviewAnswers = { access: type === 'yes', refused: type === 'no', closed: type === 'closed' };
+  // Show Q2
+  const wrap = document.getElementById('q2-wrap');
+  if (wrap) {
+    wrap.innerHTML = `
+      <div class="t-vote-title" style="margin-top:12px">${tr('q2Title')}</div>
+      <div class="t-vote-row">
+        <button class="t-vote-btn t-vote-clean" onclick="answerQ2('clean',this)"><span class="t-vote-icon">✨</span>${tr('q2Clean')}</button>
+        <button class="t-vote-btn t-vote-ok" onclick="answerQ2('ok',this)"><span class="t-vote-icon">🆗</span>${tr('q2Ok')}</button>
+        <button class="t-vote-btn t-vote-dirty" onclick="answerQ2('dirty',this)"><span class="t-vote-icon">🚫</span>${tr('q2Dirty')}</button>
+      </div>`;
+  }
+}
+
+function answerQ2(val, el) {
+  el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => { b.classList.remove('sel'); b.disabled = true; });
+  el.classList.add('sel');
+  _reviewAnswers.cleanliness = val;
+  // Show Q3
+  const wrap = document.getElementById('q3-wrap');
+  if (wrap) {
+    wrap.innerHTML = `
+      <div class="t-vote-title" style="margin-top:12px">${tr('q3Title')}</div>
+      <div class="t-vote-row">
+        <button class="t-vote-btn t-vote-paper-good" onclick="answerQ3('good',this)"><span class="t-vote-icon">📄</span>${tr('q3Good')}</button>
+        <button class="t-vote-btn t-vote-paper-only" onclick="answerQ3('only',this)"><span class="t-vote-icon">📄</span>${tr('q3Only')}</button>
+        <button class="t-vote-btn t-vote-paper-none" onclick="answerQ3('none',this)"><span class="t-vote-icon">🚫</span>${tr('q3None')}</button>
+      </div>`;
+  }
+}
+
+function answerQ3(val, el) {
+  el.parentElement.querySelectorAll('.t-vote-btn').forEach(b => { b.classList.remove('sel'); b.disabled = true; });
+  el.classList.add('sel');
+  _reviewAnswers.paperSpace = val;
+  // Save all 3 answers as 1 review document
+  localStorage.setItem(`voted_${currentToilet.id}`, 'done');
   db.collection('reviews').add({
     toiletId: currentToilet.id, cityKey: activeCity,
-    access: type === 'yes', closed: type === 'closed', refused: type === 'no',
+    access: !!_reviewAnswers.access, refused: !!_reviewAnswers.refused, closed: !!_reviewAnswers.closed,
+    cleanliness: _reviewAnswers.cleanliness, paperSpace: _reviewAnswers.paperSpace,
     ts: firebase.firestore.FieldValue.serverTimestamp(),
   }).catch(() => {});
-  const field = type === 'yes' ? 'access' : (type === 'closed' ? 'closed' : 'refused');
   const ref = db.collection('reviewSummaries').doc(currentToilet.id);
+  const field = _reviewAnswers.access ? 'access' : (_reviewAnswers.closed ? 'closed' : 'refused');
   ref.set({ [field]: firebase.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => {});
-  notifyNewReview(type === 'yes' ? '🚪 入れた' : (type === 'closed' ? '🔒 閉鎖中' : '🙅 断られた'));
-  const wrap = document.getElementById('qk-more-wrap');
-  if (wrap) wrap.innerHTML = `<button class="qk-more" onclick="startInlineReview()">${tr('moreReview')}</button>`;
+  notifyNewReview(`${field} | clean:${_reviewAnswers.cleanliness} | paper:${_reviewAnswers.paperSpace}`);
+  // Show done message
+  const section = document.getElementById('review-section');
+  if (section) {
+    const q3 = document.getElementById('q3-wrap');
+    if (q3) q3.innerHTML = `<div class="t-q-done">${tr('reviewDone')}</div>`;
+  }
 }
 
 function compressHours(hours) {
