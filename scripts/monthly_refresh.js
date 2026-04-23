@@ -7,7 +7,11 @@ if (!admin.apps.length) {
   admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SA_KEY)) });
 }
 const db = admin.firestore();
-const API_KEY = process.env.PLACES_API_KEY || 'AIzaSyDVuhME-g_3QakgS4cmtWlYR01uns2kG1A';
+const API_KEY = process.env.PLACES_API_KEY;
+if (!API_KEY) {
+  console.error('ERROR: PLACES_API_KEY environment variable is required');
+  process.exit(1);
+}
 
 const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha','kagoshima'];
 const CITIES = {

@@ -22,13 +22,7 @@ jobs:
           npm init -y 2>/dev/null || true
           npm install firebase-admin
 
-      - name: Create service account key
+      - name: Run reports aggregation
         env:
           FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
-        run: echo "$FIREBASE_SA_KEY" > scripts/serviceAccountKey.json
-
-      - name: Run reports aggregation
         run: node scripts/reports_aggregate.js
-
-      - name: Cleanup
-        run: rm -f scripts/serviceAccountKey.json
