@@ -32,7 +32,8 @@ jobs:
         run: |
           PROMPT=$(cat <<'PROMPT_EOF'
           You are a QA engineer for the Oasis toilet finder app.
-          Read the QA checklist (OASIS_QA.md), then audit index.html, OASIS_SSOT.md, and firestore.rules.
+          Read the QA checklist (OASIS_QA.md) including section 11 (UI-Data integrity), then audit index.html, OASIS_SSOT.md, and firestore.rules.
+          Pay special attention to data flow mismatches: API fetch counts vs render counts, Firestore totals vs allToilets, filter counts vs visible markers.
           Report issues in this exact JSON format:
           {"clean": false, "issues": [{"severity": "Critical|High|Medium|Low", "title": "...", "location": "file:line", "detail": "...", "fix": "..."}]}
           If no issues found: {"clean": true, "issues": []}

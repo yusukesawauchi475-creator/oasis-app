@@ -88,4 +88,12 @@ index.htmlを全文スキャン：
 - マーカーtap→openDetail()→reviews fetch→UI更新が繋がってるか
 - +ボタン→フォーム→submitAdd()→Firestore保存→notifyNewToilet()が繋がってるか
 
+### 11. UI-Data整合性
+バックエンドとフロントの整合性を確認：
+- searchCity()のAPI取得件数と画面描画件数が一致してるか（sliceやfilterで削られてないか）
+- loadCity()のFirestore chunk合計とallToilets.lengthが一致してるか
+- renderNearby()のallToilets.lengthと表示件数の関係が正しいか（stageExpandのフィルタ条件確認）
+- applyFilter()の条件マッチ件数とrefreshZoom()で可視になるマーカー数が一致してるか
+- 不一致があればseverity: Highで報告
+
 QA完了後、~/Oasis/OASIS_QA_REPORT_$(date +%Y%m%d).md に結果を保存。

@@ -1536,7 +1536,7 @@ async function openDetail(toilet, autoReview) {
   const badgeLabel = tierLabelMap[detailTk] || '?';
 
   const hoursStr = toilet.hours ? compressHours(toilet.hours) : '';
-  const freeLabel = toilet.free ? tr('tagFree') : tr('tagPaid');
+  const freeLabel = toilet.free === true ? tr('tagFree') : null;
 
   // Fetch review stats
   let reviewCount = 0, vAccess = 0, vRefused = 0, vClosed = 0;
@@ -1576,7 +1576,7 @@ async function openDetail(toilet, autoReview) {
     </div>
     <div class="t-review-count">${reviewCount > 0 ? `${reviewCount} ${LANG==='ja'?'件のレビュー':'reviews'}` : ''}</div>
     <div class="t-info-row">${hoursStr ? `<span class="t-ii">🕐</span>${hoursStr}` : ''}</div>
-    <div class="t-info-row"><span class="t-ii">💴</span>${freeLabel}</div>
+    ${freeLabel ? `<div class="t-info-row"><span class="t-ii">🆓</span>${freeLabel}</div>` : ''}
     ${phraseCard}
     <div class="t-btn-row">
       <button class="t-btn-3d t-btn-nav" onclick="navWithNudge(${toilet.lat},${toilet.lng})"><span class="t-btn-icon">📍</span>${tr('navBtnLabelShort')}</button>
@@ -2052,11 +2052,12 @@ function searchCity(q) {
           textQuery: q,
           languageCode: 'ja',
           regionCode: 'JP',
-          maxResultCount: 5,
+          maxResultCount: 10,
+          rankPreference: 'RELEVANCE',
         }, getSearchBias())),
       });
       const data = await res.json();
-      const places = (data.places || []).slice(0, 5);
+      const places = data.places || [];
       if (!places.length) {
         document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">${tr('noResults')}</div>`;
         return;
