@@ -224,24 +224,57 @@ function switchTab(tab) {
 async function loadDashboard() {
   const panel = document.getElementById('panel-dashboard');
   panel.innerHTML = '<div class="empty">読み込み中...</div>';
+  const now = new Date().toLocaleString('ja-JP');
 
-  // Parallel: reviews count, pending count, visitors, all cities
-  const [revSnap, pendSnap, visSnap, cityData] = await Promise.all([
+  const [revSnap, pendAllSnap, visSnap, cityData] = await Promise.all([
     db.collection('reviews').get(),
-    db.collection('pending_toilets').where('status','==','pending').get(),
+    db.collection('pending_toilets').get(),
     db.collection('stats').doc('visitors').get(),
     loadAllCities(),
   ]);
   const vis = visSnap.exists ? visSnap.data() : { total: 0, today: 0 };
 
+  // Pending breakdown
+  let pPending = 0, pApproved = 0, pRejected = 0;
+  pendAllSnap.forEach(d => {
+    const s = d.data().status;
+    if (s === 'pending') pPending++;
+    else if (s === 'approved') pApproved++;
+    else if (s === 'rejected') pRejected++;
+  });
+
+  // Review stats: per city + top 5 toilets
+  const revByCity = {};
+  const revByToilet = {};
+  revSnap.forEach(doc => {
+    const d = doc.data();
+    revByCity[d.cityKey] = (revByCity[d.cityKey] || 0) + 1;
+    if (d.toiletId) revByToilet[d.toiletId] = (revByToilet[d.toiletId] || { count: 0, cityKey: d.cityKey });
+    if (d.toiletId) revByToilet[d.toiletId].count++;
+  });
+  const topToilets = Object.entries(revByToilet)
+    .sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+
+  // Resolve top toilet names from cache
+  const topCards = topToilets.map(([id, info]) => {
+    const cached = _toiletCache[id];
+    const name = cached ? cached.name : id.slice(0, 20);
+    const link = cached ? `<a href="https://www.google.com/maps?q=${cached.lat},${cached.lng}" target="_blank" style="font-size:10px;color:#3B82F6">地図</a>` : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #EDE8E0">
+      <span style="font-size:12px;font-weight:700">${name}</span>
+      <span style="font-size:11px;color:#8A8578">${info.count}件 ${link}</span>
+    </div>`;
+  }).join('');
+
   let totalLoc = 0;
   const cityCards = cityData.map(cd => {
     totalLoc += cd.total;
     const t1pct = cd.total ? Math.round(cd.t1 / cd.total * 100) : 0;
+    const rv = revByCity[cd.key] || 0;
     return `<div class="city-card">
       <div class="city-name">${CITY_LABELS[cd.key] || cd.key}</div>
       <div class="city-meta">
-        ${cd.total.toLocaleString()} 件<br>
+        ${cd.total.toLocaleString()} 件 | レビュー ${rv}<br>
         <span class="t1">T1: ${cd.t1} (${t1pct}%)</span><br>
         <span class="t4">T4非表示: ${cd.t4}</span>
       </div>
@@ -252,11 +285,13 @@ async function loadDashboard() {
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-num">${totalLoc.toLocaleString()}</div><div class="stat-label">総ロケーション</div></div>
       <div class="stat-card"><div class="stat-num">${revSnap.size}</div><div class="stat-label">総レビュー</div></div>
-      <div class="stat-card"><div class="stat-num">${pendSnap.size}</div><div class="stat-label">承認待ち</div></div>
+      <div class="stat-card"><div class="stat-num">${pPending}</div><div class="stat-label">承認待ち</div><div class="stat-label" style="color:#8A8578">承認${pApproved} 却下${pRejected}</div></div>
       <div class="stat-card"><div class="stat-num">${(vis.total||0).toLocaleString()}</div><div class="stat-label">累計訪問者</div><div class="stat-label" style="color:#2EAF70">今日 ${vis.today||0}</div></div>
     </div>
+    ${topCards ? `<div class="section-title">レビューTOP5</div><div class="card">${topCards}</div>` : ''}
     <div class="section-title">都市別</div>
     <div class="city-grid">${cityCards}</div>
+    <div style="text-align:right;font-size:10px;color:#B0A898;margin-top:12px">更新: ${now}</div>
   `;
 }
 

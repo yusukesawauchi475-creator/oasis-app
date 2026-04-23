@@ -1,8 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Cities/chunks — read all, write for admin.html approval
+    match /cities/{cityKey}/chunks/{chunkId} {
+      allow read: if true;
+      allow write: if true;
     }
+
+    // Reviews — read, create, delete (admin.html cleanup)
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['toiletId', 'ts'])
+                    && request.resource.data.size() < 10;
+      allow update: if false;
+      allow delete: if true;
+    }
+
+    // Review summaries — read, create, update
+    match /reviewSummaries/{toiletId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if false;
+    }
+
+    // Reports — read, create
+    match /reports/{reportId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['toiletId', 'reason']);
+      allow update, delete: if false;
+    }
+
+    // Pending toilets — read, create, update (approval status change)
+    match /pending_toilets/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['lat', 'lng', 'status'])
+                    && request.resource.data.status == 'pending';
+      allow update: if true;
+      allow delete: if false;
+    }
+
+    // Stats — visitors counter
+    match /stats/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if false;
+    }
+
+    // TODO: マーケ前にFirebase Auth導入してadmin判定をcustom claimに変更
+    // match /cities/{cityKey}/chunks/{chunkId} { allow write: if request.auth.token.admin == true; }
+    // match /reviews/{reviewId} { allow delete: if request.auth.token.admin == true; }
+    // match /pending_toilets/{docId} { allow update: if request.auth.token.admin == true; }
   }
 }
