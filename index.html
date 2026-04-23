@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Oasis — いますぐ、トイレ。</title>
-<meta name="description" content="IBD・IBS患者のためのトイレ発見アプリ。40,000件以上のトイレをすぐ地図で確認。">
-<meta property="og:title" content="Oasis — いますぐ、トイレ。">
-<meta property="og:description" content="IBD・IBS患者のためのトイレ発見アプリ。40,000件以上のトイレをすぐ地図で確認。">
+<title>Oasis — トイレすぐそこに</title>
+<meta name="description" content="最寄りのトイレにすぐ案内。あなたのレビューでみんなを笑顔に。">
+<meta property="og:title" content="Oasis — トイレすぐそこに">
+<meta property="og:description" content="最寄りのトイレにすぐ案内。あなたのレビューでみんなを笑顔に。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://findoasis.app">
 <meta property="og:image" content="https://findoasis.app/oasis-logo.jpg">
@@ -771,7 +771,7 @@ const L10N = {
     rptBtnLabelShort:'報告',
     lgPub:'確実', lgLikely:'たぶん使える', lgMay:'声がけ必要', lgAsk:'要確認', lgPartner:'IBD提携',
     hoursEveryDay:'毎日', hoursWeekday:'月〜金', hoursWeekend:'土日',
-    pageTitle:'Oasis — いますぐ、トイレ。', adminAdded:'直接追加しました', noResults:'該当なし',
+    pageTitle:'Oasis — トイレすぐそこに', adminAdded:'直接追加しました', noResults:'該当なし',
   },
   en: {
     loading:'Loading...', loadCity:'Preparing map...',
@@ -808,7 +808,7 @@ const L10N = {
     rptBtnLabelShort:'Report',
     lgPub:'Confirmed', lgLikely:'Likely', lgMay:'Ask Staff', lgAsk:'Check First', lgPartner:'IBD Partner',
     hoursEveryDay:'Daily', hoursWeekday:'Mon–Fri', hoursWeekend:'Sat–Sun',
-    pageTitle:'Oasis — Find a Restroom Now.', adminAdded:'Added directly.', noResults:'No results',
+    pageTitle:'Oasis — A Restroom Right Here', adminAdded:'Added directly.', noResults:'No results',
   }
 };
 let T = L10N[LANG];
@@ -841,6 +841,7 @@ const CITIES = {
   kyoto:     { ja:'京都',         en:'Kyoto',       flag:'⛩',  c:[35.010,135.770], z:13, bbox:{n:35.050,s:34.960,e:135.810,w:135.720} },
   hiroshima: { ja:'広島',         en:'Hiroshima',   flag:'🕊',  c:[34.400,132.470], z:13, bbox:{n:34.430,s:34.370,e:132.510,w:132.430} },
   naha:      { ja:'那覇',         en:'Naha',        flag:'🌺', c:[26.220,127.680], z:13, bbox:{n:26.260,s:26.180,e:127.720,w:127.640} },
+  kagoshima: { ja:'鹿児島',       en:'Kagoshima',   flag:'🌋', c:[31.593,130.557], z:13, bbox:{n:31.640,s:31.540,e:130.610,w:130.500} },
 };
 const cityLabel = k => CITIES[k][LANG] || CITIES[k].en;
 
@@ -999,7 +1000,7 @@ const TIER_WEIGHT = {T1:5, T2_PLUS:4, T2_MINUS:3, T3:2, T4:1, PARTNER:5};
 /* ═══════════════════════════════════
    MARKERS
 ═══════════════════════════════════ */
-const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha'];
+const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha','kagoshima'];
 
 function tierKey(t) {
   if (t.isPartner) return 'PARTNER';
@@ -1468,6 +1469,7 @@ function setFilter(f) {
 ═══════════════════════════════════ */
 function goToMe() {
   if (!navigator.geolocation) return;
+  clearSearchPin();
   document.getElementById('loc-btn').style.opacity = '0.5';
   navigator.geolocation.getCurrentPosition(pos => {
     const {latitude: lat, longitude: lng} = pos.coords;
@@ -2000,6 +2002,24 @@ function switchTab(tab) {
 }
 
 const PLACES_API_KEY = 'AIzaSyDVuhME-g_3QakgS4cmtWlYR01uns2kG1A';
+const COUNTRY_BIAS = {
+  JP: { rectangle: { low: {latitude:24,longitude:122}, high: {latitude:46,longitude:146} } },
+  US: { rectangle: { low: {latitude:24,longitude:-125}, high: {latitude:49,longitude:-66} } },
+  UK: { rectangle: { low: {latitude:50,longitude:-8}, high: {latitude:59,longitude:2} } },
+  AU: { rectangle: { low: {latitude:-44,longitude:113}, high: {latitude:-10,longitude:154} } },
+};
+const AU_CITIES = ['sydney','melbourne','brisbane'];
+function getSearchBias() {
+  if (!activeCity) return {};
+  let region;
+  if (JP_CITIES.includes(activeCity)) region = 'JP';
+  else if (activeCity === 'manhattan') region = 'US';
+  else if (activeCity === 'london') region = 'UK';
+  else if (AU_CITIES.includes(activeCity)) region = 'AU';
+  if (region && COUNTRY_BIAS[region]) return { locationBias: COUNTRY_BIAS[region] };
+  return {};
+}
+
 let searchTimer = null;
 function searchCity(q) {
   clearTimeout(searchTimer);
@@ -2033,14 +2053,7 @@ function searchCity(q) {
           languageCode: 'ja',
           regionCode: 'JP',
           maxResultCount: 5,
-        }, activeCity && CITIES[activeCity] ? {
-          locationBias: {
-            circle: {
-              center: { latitude: CITIES[activeCity].c[0], longitude: CITIES[activeCity].c[1] },
-              radius: 50000.0
-            }
-          }
-        } : {})),
+        }, getSearchBias())),
       });
       const data = await res.json();
       const places = (data.places || []).slice(0, 5);
