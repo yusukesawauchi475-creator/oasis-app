@@ -52,19 +52,28 @@ QAは「言われなくてもやる」ことが前提。
 ## ファイル構成
 
 ```
-~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+~/oasis-app/                      ← Git root（ローカル: /home/user/oasis-app）, Netlifyデプロイ元
+├── index.html                    ← 本番SPA（~2,207行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理ダッシュボード（ダッシュボード/申請/レビュー/自動降格タブ）
+├── manifest.json                 ← PWAマニフェスト（name, icons, start_url等）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← 定期QAチェックリスト（11項目）
+├── HYBRID_DESIGN.md              ← ハイブリッドアーキテクチャ設計ドキュメント（参考用）
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
-├── firestore.rules               ← Firestoreセキュリティルール
+├── firestore.rules               ← Firestoreセキュリティルール（要修正: Issue #9）
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
+├── .github/workflows/
+│   ├── nightly-cron.yml          ← 毎日JST03:00: reports_aggregate.js 実行
+│   └── monthly-refresh.yml      ← 毎月1日JST03:00: monthly_refresh.js 実行（Places API課金注意: Issue #22）
+├── scripts/                      ← audit/fix/ingest/cronスクリプト（Python/Node）
+│   ├── monthly_refresh.js        ← 月次Places API新規スポット取得（GitHub Actions用）
+│   ├── reports_aggregate.js      ← 夜間レポート集計（GitHub Actions用）
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
-│   └── ...
+│   └── ...（audit_*.py, fix_*.py 等）
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -90,23 +99,30 @@ QAは「言われなくてもやる」ことが前提。
 |---|---|---|
 | CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
 | HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| L10N | 738-816 | JP/EN翻訳辞書 |
+| Firebase init | 851-877 | firebase.initializeApp, Firestore接続 |
+| addUIOverlays | 878-919 | lang-toggle, adminモード（5回タップでadmin） |
+| initMap() | 920-966 | Leaflet初期化, クラスタータップ処理 |
+| TIER_CONFIG | 971-1004 | brands, types, colors, display設定 |
+| tierKey() | 1005-1036 | Tier判定ロジック（JP/US分岐, majorTerminals） |
+| makeIcon/cluster | 1037-1054 | マーカーアイコン生成 |
+| refreshZoom() | 1090-1155 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1178-1253 | Firestore chunk並列fetch, キャッシュ(v5) |
+| loadPendingToilets() | 1254-1291 | pending_toilets取得・マーカー追加 |
+| renderCity() | 1292-1323 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1370-1437 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| selectCity() | 1438-1461 | 都市ピッカー選択処理 |
+| goToMe() | 1470-1500 | GPS現在地取得・都市切替 |
+| openDetail() | 1526-1601 | 詳細シート（3-question tap review, 投票） |
+| answerQ1/2/3 | 1602-1660 | 3択タップレビュー（入れた/断られた/閉鎖中 + コメント） |
+| submitAdd | 1773-1826 | トイレ追加（admin直接 or pending+EmailJS） |
+| notifyNewToilet/Review | 1827-1881 | EmailJS通知送信 |
+| startInlineReview | 1882-1913 | インラインレビューUI起動 |
+| submitReview | 1914-1958 | 詳細レビュー送信（Firestore + notifyNewReview） |
+| goToSearchResult | 1959-2023 | 検索結果へ移動（loadCity + map.setView） |
+| searchCity | 2024-2134 | Google Places Autocomplete (New API) |
+| applyLang() | 2135-2156 | 言語切替UI更新 |
+| init() | 2157-2207 | 起動フロー（geolocation, loadCity, invalidateSize） |
 
 ## Firestore構造
 
