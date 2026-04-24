@@ -830,7 +830,7 @@ const CITIES = {
   manhattan: { ja:'ニューヨーク', en:'New York',    flag:'🗽', c:[40.730,-73.950], z:15, bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080} },
   tokyo:     { ja:'東京',         en:'Tokyo',       flag:'🗼', c:[35.690,139.760], z:12, bbox:{n:35.820,s:35.530,e:139.920,w:139.580} },
   osaka:     { ja:'大阪',         en:'Osaka',       flag:'🐙', c:[34.693,135.502], z:13, bbox:{n:34.780,s:34.590,e:135.620,w:135.380} },
-  kobe:      { ja:'神戸',         en:'Kobe',        flag:'⚓', c:[34.690,135.195], z:13, bbox:{n:34.760,s:34.610,e:135.310,w:135.070} },
+  kobe:      { ja:'神戸',         en:'Kobe',        flag:'⚓', c:[34.690,135.195], z:13, bbox:{n:34.790,s:34.590,e:135.350,w:134.970} },
   london:    { ja:'ロンドン',     en:'London',      flag:'🎡', c:[51.505,-0.090],  z:13, bbox:{n:51.670,s:51.340,e:0.010,w:-0.250} },
   sydney:    { ja:'シドニー',     en:'Sydney',      flag:'🦘', c:[-33.868,151.209],z:13, bbox:{n:-33.730,s:-34.000,e:151.320,w:151.100} },
   melbourne: { ja:'メルボルン',   en:'Melbourne',   flag:'☕', c:[-37.813,144.963],z:13, bbox:{n:-37.700,s:-37.920,e:145.080,w:144.840} },
@@ -2064,7 +2064,7 @@ function searchCity(q) {
       }
       document.getElementById('search-results').innerHTML = places.map(p => {
         const name = (p.displayName && p.displayName.text) || '';
-        const addr = p.formattedAddress || '';
+        const addr = (p.formattedAddress || '').replace(/^(日本[、,]\s*|Japan,\s*|United States,\s*|United Kingdom,\s*|Australia,\s*)/, '');
         const lat = p.location ? p.location.latitude : 0;
         const lng = p.location ? p.location.longitude : 0;
         const safeName = name.replace(/'/g, "\\'");
