@@ -2001,6 +2001,14 @@ function switchTab(tab) {
   } else {
     document.getElementById('search-panel').classList.remove('show');
     document.getElementById('nearby').style.display = '';
+    // Fix: restore current location when switching back to Near Me tab
+    if (userLat != null && userLng != null) {
+      clearSearchPin();
+      map.flyTo([userLat, userLng], 15, {duration: 1.0});
+      setTimeout(() => { map.invalidateSize(); renderNearby(); }, 400);
+    } else {
+      goToMe();
+    }
   }
 }
 
