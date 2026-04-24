@@ -80,11 +80,13 @@ nav button.on { color: #fff; border-bottom: 3px solid #fff; }
     <button class="on" data-tab="dashboard" onclick="switchTab('dashboard')">ダッシュボード</button>
     <button data-tab="pending" onclick="switchTab('pending')">申請</button>
     <button data-tab="reviews" onclick="switchTab('reviews')">レビュー</button>
+    <button data-tab="downgraded" onclick="switchTab('downgraded')">自動降格</button>
   </nav>
   <div class="container">
     <div id="panel-dashboard" class="panel show"></div>
     <div id="panel-pending" class="panel"></div>
     <div id="panel-reviews" class="panel"></div>
+    <div id="panel-downgraded" class="panel"></div>
   </div>
 </div>
 
@@ -110,7 +112,7 @@ const CITIES_BBOX = {
   manhattan:{c:[40.730,-73.950],bbox:{n:40.882,s:40.630,e:-73.700,w:-74.080}},
   tokyo:{c:[35.690,139.760],bbox:{n:35.820,s:35.530,e:139.920,w:139.580}},
   osaka:{c:[34.693,135.502],bbox:{n:34.780,s:34.590,e:135.620,w:135.380}},
-  kobe:{c:[34.690,135.195],bbox:{n:34.760,s:34.610,e:135.310,w:135.070}},
+  kobe:{c:[34.690,135.195],bbox:{n:34.790,s:34.590,e:135.350,w:134.970}},
   london:{c:[51.505,-0.090],bbox:{n:51.670,s:51.340,e:0.010,w:-0.250}},
   sydney:{c:[-33.868,151.209],bbox:{n:-33.730,s:-34.000,e:151.320,w:151.100}},
   melbourne:{c:[-37.813,144.963],bbox:{n:-37.700,s:-37.920,e:145.080,w:144.840}},
@@ -219,6 +221,7 @@ function switchTab(tab) {
   if (tab === 'dashboard') loadDashboard();
   if (tab === 'pending') loadPending();
   if (tab === 'reviews') loadReviews();
+  if (tab === 'downgraded') loadDowngraded();
 }
 
 /* ── Dashboard ── */
@@ -440,6 +443,46 @@ async function delReview(docId) {
   if (!confirm('このレビューを削除しますか？')) return;
   await db.collection('reviews').doc(docId).delete();
   loadReviews();
+}
+
+/* ── Downgraded ── */
+async function loadDowngraded() {
+  const panel = document.getElementById('panel-downgraded');
+  panel.innerHTML = '<div class="empty">読み込み中...</div>';
+  try {
+    const snap = await db.collection('stats').doc('autoDowngraded').collection('history')
+      .orderBy('downgradedAt','desc').limit(50).get();
+    if (snap.empty) { panel.innerHTML = '<div class="empty">自動降格なし</div>'; return; }
+    panel.innerHTML = '';
+    snap.forEach(doc => {
+      const d = doc.data();
+      const ts = d.downgradedAt ? new Date(d.downgradedAt.seconds*1000).toLocaleString('ja-JP') : '不明';
+      panel.innerHTML += `<div class="card">
+        <div class="card-name">${d.toiletName || d.toiletId}</div>
+        <div class="card-meta">
+          ${d.cityKey} | Tier ${d.oldTier} → 4 | 報告${d.reportCount}件 | ${ts}<br>
+          <a href="https://www.google.com/maps?q=${d.toiletId}" target="_blank" style="color:#3B82F6">地図で確認</a>
+        </div>
+        <button class="btn btn-approve" onclick="restoreToilet('${doc.id}','${d.toiletId}','${d.cityKey}',${d.chunkIndex},${d.oldTier})">復元 (Tier ${d.oldTier})</button>
+      </div>`;
+    });
+  } catch(e) { panel.innerHTML = '<div class="empty">エラー: ' + e.message + '</div>'; }
+}
+
+async function restoreToilet(histId, toiletId, cityKey, chunkIdx, oldTier) {
+  if (!confirm(`${toiletId} をTier ${oldTier}に復元しますか？`)) return;
+  try {
+    const ref = db.collection('cities').doc(cityKey).collection('chunks').doc(`${chunkIdx}`);
+    const snap = await ref.get();
+    if (!snap.exists) { alert('チャンクが見つかりません'); return; }
+    const toilets = snap.data().toilets || [];
+    const idx = toilets.findIndex(t => t.id === toiletId);
+    if (idx === -1) { alert('トイレが見つかりません'); return; }
+    toilets[idx] = { ...toilets[idx], tier: oldTier };
+    await ref.update({ toilets });
+    await db.collection('stats').doc('autoDowngraded').collection('history').doc(histId).delete();
+    loadDowngraded();
+  } catch(e) { alert('復元エラー: ' + e.message); }
 }
 </script>
 </body>
