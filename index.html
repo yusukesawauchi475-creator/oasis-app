@@ -1082,6 +1082,7 @@ let clusterMarkers = [];
 function applyFilter(f) {
   activeFilter = f || activeFilter;
   refreshZoom();
+  renderNearby();
   // Ensure searchPin stays visible after filter change (refreshZoom rAF is async)
   setTimeout(() => restoreSearchPin(), 300);
 }
@@ -1377,7 +1378,8 @@ function renderNearby() {
     return;
   }
   const [oLat, oLng] = origin;
-  const withDist = allToilets
+  const source = activeFilter === 't1' ? allToilets.filter(t => tierKey(t) === 'T1') : allToilets;
+  const withDist = source
     .map(t => ({...t, dist: distMeters(oLat, oLng, t.lat, t.lng)}))
     .sort((a,b) => a.dist - b.dist);
 
@@ -1425,7 +1427,8 @@ function expandNearby() {
   const origin = getOriginLatLng();
   if (!origin) return;
   const [oLat, oLng] = origin;
-  const all = allToilets
+  const source = activeFilter === 't1' ? allToilets.filter(t => tierKey(t) === 'T1') : allToilets;
+  const all = source
     .map(t => ({...t, dist: distMeters(oLat, oLng, t.lat, t.lng)}))
     .sort((a,b) => a.dist - b.dist)
     .slice(0, 20);

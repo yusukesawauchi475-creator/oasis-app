@@ -12,20 +12,25 @@
 | 本番URL | https://findoasis.app |
 | Netlify URL | https://idyllic-mooncake-b78e56.netlify.app |
 | Firebase project | oasis-bde20 |
-| Firebase API Key | AIzaSyDXQabNFmpISVQ4O_yCP6dTyx-UC_uGQLw |
-| Google Places API Key | AIzaSyDVuhME-g_3QakgS4cmtWlYR01uns2kG1A |
+| Firebase API Key | index.html 埋め込み（ブラウザ用、HTTP referrer制限未設定・TODO） |
+| Google Places API Key（ブラウザ用） | index.html 埋め込み、oasis-app プロジェクト「Maps Platform API Key」、API制限: Places API/Places API(New)のみ |
+| Google Places API Key（サーバー用） | GitHub Secrets `PLACES_API_KEY`、oasis-app プロジェクト「Places API - Server Side」 |
+| Firebase Service Account | GitHub Secrets `FIREBASE_SA_KEY`、Key ID末尾 55e40fde77b5（旧鍵 c2b9abdc79a4 は2026-04-24削除済み） |
+| Anthropic API Key | GitHub Secrets `ANTHROPIC_API_KEY`（nightly-qa.yml用） |
 
 ---
 
-## Current state（2026-04-22 v4.1）
+## Current state（2026-04-24 v4.3）
 
 ### データ
-- 全14都市・約40,000件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇）
+- 全15都市・約41,580件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇/鹿児島）
 - Manhattan bbox拡張済み（Brooklyn/Queens/Jersey City含む、lng<-74.0で1,607件確認済）
 - Firestoreチャンク構造: cities/{cityKey}/chunks/{0-14}
 - isPartner:true は0件（IBD ingest未実行）
 - pending_toilets: City Point Brooklyn → status:approved（chunk 11に追加済み）
 - JP都市名日本語化: 7,600件変換済み（英語名73.4%→33.6%に改善）、残り6,434件は店名等でそのまま
+- 鹿児島: 1,580件ingest済み（2026-04-23、コスト$0、JP名94.7%）
+- 有料トイレ修正: free:false→null 8,691件一括更新。free===trueのみ「🆓無料」表示
 
 ### UI/UX実装済み
 - TIER_CONFIG（brands/types/colors/display）
@@ -33,11 +38,12 @@
 - 段階展開（T1+T2P+PARTNER→T2M→T3→T4）
 - フィルター：「すべて」「🩵今すぐ入れる」2つのみ（tier===1フィルタ）
 - Tier色：T1=水色(#ADE8F4)、T2_PLUS=緑(#4CAF50)、T2_MINUS=オレンジ(#E67E22)、T3=黄、T4=赤（非表示）
-- 詳細シート v2：顔アイコン(😶😟🙂😄)、星評価3段階(grayscaleデフォルト)、投票件数表示(🚪🙅🔒)、3Dボタン
+- 詳細シート v3：顔アイコン(accessRate基準)、3問タップ式レビュー、投票件数表示(🚪🙅🔒)、3Dボタン
+- 3問レビュー: Q1入れた/断られた/閉鎖中 → Q2清潔さ(きれい/普通/汚い) → Q3紙・広さ(紙あり+広い/紙のみ/紙なし・狭い)
+- ⭐星評価: 削除済み（3問タップ式に完全移行）
 - 詳細シートボタン: JP「📍ルート案内」「🚩報告」/ EN「📍Directions」「🚩Report」
-- one-vote制限: localStorage `rated_${toiletId}` / `voted_${toiletId}` で重複防止
-- 星評価: 再オープン時に自分の評価値で星表示（localStorageから復元）
-- reviewSummaries: rateStar→ratingTotal/ratingCount、quickVote→access/refused/closed を increment
+- one-vote制限: localStorage `voted_${toiletId}` で重複防止
+- reviewSummaries: answerQ3完了時にaccess/refused/closed を increment
 - JP/ENトグル（localStorage保存、地図上部中央）
 - L10N: 85キーJP/EN完全一致。pageTitle/adminAdded/noResults対応済み
 - 赤rippleピン（現在地 me-dot divIcon）
@@ -64,8 +70,8 @@
 - OGタグ: description/title/image/url/type
 - PWA: manifest.json + mobile-web-app-capable + apple-mobile-web-app-title
 - 訪問者カウンター: stats/visitors（total/today/lastDate）
-- レビュー通知メール: rateStar/quickVote/submitReview → notifyNewReview() → EmailJS
-- L10N: 70キーJP/EN完全一致（未使用15キー削除済み）
+- レビュー通知メール: answerQ3完了時 → notifyNewReview() → EmailJS
+- L10N: 78キーJP/EN完全一致（星評価キー削除、Q2/Q3キー追加）
 
 ### admin.html（findoasis.app/admin.html）
 - パスワード保護: `oasis2024admin` → localStorage adminAuth
@@ -82,8 +88,8 @@
 ### 検索
 - Google Places Text Search (New) `places.googleapis.com/v1/places:searchText`
 - FieldMask: `places.displayName,places.formattedAddress,places.location`
-- リクエスト: `languageCode:'ja'`, `regionCode:'JP'`, `maxResultCount:5`
-- locationBias: activeCity中心50km circle
+- リクエスト: `languageCode:'ja'`, `regionCode:'JP'`, `maxResultCount:10`, `rankPreference:'RELEVANCE'`
+- locationBias: 国全体rectangle（JP:24-46°N/122-146°E、US/UK/AU各国対応）
 - 座標を直接取得（Place Details不要、1 API callで完結）
 - detectCity null時は最近傍都市にfallback（nearestCity関数）
 - 徒歩時間: searchPin優先→GPS→cityCenter（getOriginLatLng）
@@ -99,10 +105,11 @@
 - レビュー通知メール: [Oasis] 新規レビュー（トイレ名/評価/maps link）
 
 ### GitHub Actions
-- `.github/workflows/nightly-qa.yml`: 毎日JST 2:00にClaude APIでQA実行
-- `OASIS_QA.md`: 10項目チェックリスト
-- Critical/High → GitHub Issue自動作成
-- 要: ANTHROPIC_API_KEY secret設定
+- nightly-qa.yml（既存）: 毎日JST 02:00、Claude APIでQAレポート、Critical/High自動issue化
+- **nightly-cron.yml（2026-04-24追加）**: 毎日JST 03:00、reports_aggregate.js実行、3件以上の報告で自動Tier4降格
+- **monthly-refresh.yml（2026-04-24追加）**: 毎月1日JST 03:00、monthly_refresh.js実行（15都市の新規place追加）、結果をGitHub Issue化
+- Secrets: ANTHROPIC_API_KEY / FIREBASE_SA_KEY / PLACES_API_KEY
+- 鍵の受け渡し方式: ファイル化ではなく`env:`経由（2026-04-24 Phase 1移行完了）
 
 ### パフォーマンス
 - progressive loading: chunk 0先行表示→残り1-14並列fetch→各chunk完了時にaddMarker+refreshZoom
@@ -114,12 +121,14 @@
 - tier logic改善: bus_stop→T4、lodging→T4、POI単体→T4、T3からlodging除外
 - 10都市動作シミュレーション検証済み（detectCity/loadCity/renderNearby/filter全OK）
 - localStorageキャッシュ: `oasis_v6_*` キー（v5からバスト済み）
+- 手動バックアップ: ~/oasis-ingest/backup.js → ~/oasis-backups/YYYY-MM-DD.json
+- goToMe()冒頭でclearSearchPin()（周辺ボタンで検索ピンクリア）
 - キャッシュ読み込み時 `Array.isArray(d) && d.length > 0` ガード
 - emptyState発火条件: `toilets.length===0 && opts.fetchFailed`（chunk全失敗時のみ）
 - 各chunkに10秒タイムアウト（withTimeout）
 
-### Firestoreルール（簡易版、2026-04-22適用済み）
-- reviews: read+create+delete（admin.html用）、update不可
+### Firestoreルール（2026-04-23更新・deploy済み）
+- reviews: read+create、update/delete不可（削除はAdmin SDK経由）
 - pending_toilets: read+create+update（承認用）、delete不可
 - cities: read+write（承認chunk追加用）
 - reports: read+create
@@ -127,26 +136,63 @@
 - TODO: マーケ前にFirebase Auth導入してcustom claim admin判定に移行
 
 ### 残課題
-1. I know IBD Partner ingest未実行（isPartner:true 0件）
-2. 投票でtier自動変更未実装
-3. Firebase Auth導入（マーケ開始前必須）
-4. 英語名残り6,434件の処理（店名等、優先度低）
-5. Manhattan bbox拡張（Weehawken/Hoboken追加ingest検討）
-6. マーケ開始（X @oasis_app_web 初投稿）
+1. **Phase 2: ~/oasis-ingest/ 27本のenv移行**（現状ハードコード、ingestスクリプト群のローカル実行用、1本ずつ検証しながら対応）
+2. **レビュースキーマ統一**（quickVote: access/refused/closed/cleanliness/paperSpace、submitReview: access/priv/paper/comment。DB内に2種類混在、書き込み側統一は要UX設計）
+3. **レビュー閲覧 Phase B/C**（都市別・期間・Yesのみフィルタ、CSVエクスポート、トイレ別集約、NLPキーワード抽出、悪評アラート）
+4. **index.html ブラウザ用Placesキー Application restrictions未設定**（理想: findoasis.app 限定のWebsites制限追加）
+5. **admin dashboard map可視化**（レビューありトイレのpinのみ、tier色分け、クリック詳細）
+6. **Manhattan bbox拡張**（Weehawken/Hoboken/Jersey City）
+7. **Firebase Auth導入**（マーケ開始前必須、匿名Auth + Google Sign-in 2段階）
+8. **I know IBD Partner ingest**（2,884店舗、isPartner:true、月次更新）
+9. **マーケ開始**（JP: X/Twitter、US: Reddit IBD communities）
+10. **英語名残り6,434件の処理**（店名等、優先度低）
 
-### 明日のタスク（優先順）
-1. admin dashboard可視化強化（訪問者グラフ日別/週別、レビューマップ可視化、都市別マップリンク）
-2. 検索ワード拡張（10倍化）- Google Places Autocomplete追加検討
-3. Manhattan bbox拡張（Weehawken/Hoboken/Jersey City）
-4. Firebase Auth導入（マーケ開始前必須）
-5. レビュー設問の再設計（3問タップ式に変更検討）
-   - 現状: ⭐5評価 + 入れた/断られた/閉鎖中 + 詳細(access/priv/paper) + コメント
-   - 問題: IBD患者はトイレ出た直後にサッと答えたい（体調悪い状態）
-   - 提案: 3問タップ式（自由記述なし、1タップ×3で完了）
-     Q1. 入れましたか？ → 🚪入れた / 🙅断られた / 🔒閉鎖中
-     Q2. 清潔さ → ✨きれい / 🆗普通 / 🚫汚い
-     Q3. 紙・広さ → 📄紙あり+広い / 📄紙のみ / 🚫紙なしor狭い
-   - 追加調査要: 「紙」「広さ」「音漏れ」「待ち時間」のうちIBDコミュニティで最重要な2項目を絞る（X/Redditで軽く調査）
+### 完了済み（2026-04-24セッション）
+
+**セキュリティインシデント対応（完全クローズ）**
+- 古いFirebase秘密鍵（c2b9abdc79a4）漏洩 → 無効化 → 新鍵（55e40fde77b5）にローテ → Google Cloud Consoleで旧鍵削除
+- GitHub Secrets に FIREBASE_SA_KEY 登録、nightly-cron 手動実行で動作検証済
+- Google Places APIキー分離：ブラウザ用（既存、API制限追加）+ サーバー用新規作成（GitHub Secrets PLACES_API_KEY）
+- ブラウザ用キーに API restrictions 設定（Places API と Places API (New) のみ）
+- monthly_refresh.js のハードコードAPIキー削除、env var必須化
+
+**GitHub Actions自動化**
+- nightly-cron.yml 新規: 毎日JST 03:00 reports_aggregate.js（3件報告で自動Tier4降格）
+- monthly-refresh.yml 新規: 毎月1日JST 03:00 monthly_refresh.js（新規place追加、結果Issue化）
+- 鍵渡し方式をファイル化からenv経由に統一（Phase 1: ~/Oasis/scripts/ 2本完了）
+
+**admin.html 強化**
+- 自動降格タブ追加（stats/autoDowngraded/history 表示、復元ボタン）
+- ダッシュボードTOP5のトイレ名解決（Place IDむき出し問題解消）
+- レビュータブのバッジ拡張（priv/paper/cleanliness/paperSpace 4種追加、CSS 4クラス）
+
+**UI改善（index.html）**
+- Kobe bbox西側拡張（須磨/垂水カバー、135.070→134.970）
+- 検索結果住所プレフィックス除去（「日本、」「United States,」等）
+- 「今すぐ入れる」フィルタが下部リストにも連動（applyFilter内でrenderNearby呼び出し追加）
+
+**ドキュメント**
+- HYBRID_DESIGN.md新規: ハイブリッドデータアーキテクチャ Phase 1/2 設計
+
+**コミット履歴（2026-04-24）**
+- 06baecf: cron基盤 + Phase 1書き換え
+- b40fa81: workflow env修正 + ハードコード鍵削除
+- 886c83d: Kobe bbox拡張 + 住所プレフィックス除去
+- 9730c4e: admin自動降格タブ + HYBRID設計文書
+- (Commit 5予定): TOP5名前解決 + レビューバッジ拡張 + T1フィルタ連動 + SSOT更新
+
+### 完了済み（2026-04-23セッション）
+- ~~3問タップ式レビュー~~ → 実装済み（⭐5評価削除、Q1/Q2/Q3）
+- ~~レビュー通知メール~~ → notifyNewReview()実装済み
+- ~~tier logic改善~~ → bus_stop/lodging/POI-only → T4
+- ~~Firestoreルール強化~~ → delete全ブロック、deploy済み
+- ~~backup.js~~ → ~/oasis-ingest/backup.js作成済み
+- ~~鹿児島ingest~~ → 1,580件、コスト$0
+- ~~検索範囲拡大~~ → 国全体rectangle + maxResultCount:10
+- ~~有料トイレ修正~~ → free:false→null 8,691件
+- ~~goToMe() clearSearchPin~~ → 追加済み
+- ~~OGタグ更新~~ → 「トイレすぐそこに」
+- ~~UI-Data整合性QA~~ → セクション11追加
 
 ---
 
@@ -206,7 +252,7 @@ cities/{cityKey}/chunks/{0-14}
 
 ---
 
-## 都市リスト（14都市）
+## 都市リスト（15都市）
 
 | City key | ラベル | center | zoom |
 |---|---|---|---|
