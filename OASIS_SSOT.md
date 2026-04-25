@@ -136,16 +136,19 @@
 - TODO: マーケ前にFirebase Auth導入してcustom claim admin判定に移行
 
 ### 残課題
-1. **Phase 2: ~/oasis-ingest/ 27本のenv移行**（現状ハードコード、ingestスクリプト群のローカル実行用、1本ずつ検証しながら対応）
-2. **レビュースキーマ統一**（quickVote: access/refused/closed/cleanliness/paperSpace、submitReview: access/priv/paper/comment。DB内に2種類混在、書き込み側統一は要UX設計）
-3. **レビュー閲覧 Phase B/C**（都市別・期間・Yesのみフィルタ、CSVエクスポート、トイレ別集約、NLPキーワード抽出、悪評アラート）
-4. **index.html ブラウザ用Placesキー Application restrictions未設定**（理想: findoasis.app 限定のWebsites制限追加）
-5. **admin dashboard map可視化**（レビューありトイレのpinのみ、tier色分け、クリック詳細）
-6. **Manhattan bbox拡張**（Weehawken/Hoboken/Jersey City）
-7. **Firebase Auth導入**（マーケ開始前必須、匿名Auth + Google Sign-in 2段階）
-8. **I know IBD Partner ingest**（2,884店舗、isPartner:true、月次更新）
-9. **マーケ開始**（JP: X/Twitter、US: Reddit IBD communities）
-10. **英語名残り6,434件の処理**（店名等、優先度低）
+1. **現在地ピンが埋もれる**（z-index問題、後ろのトイレピンに隠れて見えない、me-dot divIcon の zIndexOffset 要調整）
+2. **Tier誤分類**（地下鉄トイレが T1 扱いの誤り、tierKey() の transit types 判定ロジック見直し）
+3. **営業時間チェックなし**（24h営業以外の店舗で「今すぐ入れる」フィルタが嘘になる、hours フィールドの現在時刻判定が未実装）
+4. **Phase 2: ~/oasis-ingest/ 27本のenv移行**（現状ハードコード、ingestスクリプト群のローカル実行用、1本ずつ検証しながら対応）
+5. **レビュースキーマ統一**（quickVote: access/refused/closed/cleanliness/paperSpace、submitReview: access/priv/paper/comment。DB内に2種類混在、書き込み側統一は要UX設計）
+6. **レビュー閲覧 Phase B/C**（都市別・期間・Yesのみフィルタ、CSVエクスポート、トイレ別集約、NLPキーワード抽出、悪評アラート）
+7. **index.html ブラウザ用Placesキー Application restrictions未設定**（理想: findoasis.app 限定のWebsites制限追加）
+8. **admin dashboard map可視化**（レビューありトイレのpinのみ、tier色分け、クリック詳細）
+9. **Manhattan bbox拡張**（Weehawken/Hoboken/Jersey City）
+10. **Firebase Auth導入**（マーケ開始前必須、匿名Auth + Google Sign-in 2段階）
+11. **I know IBD Partner ingest**（2,884店舗、isPartner:true、月次更新）
+12. **マーケ開始**（JP: X/Twitter、US: Reddit IBD communities）
+13. **英語名残り6,434件の処理**（店名等、優先度低）
 
 ### 完了済み（2026-04-24セッション）
 
@@ -174,12 +177,30 @@
 **ドキュメント**
 - HYBRID_DESIGN.md新規: ハイブリッドデータアーキテクチャ Phase 1/2 設計
 
+**Near Me / 検索フロー一連バグ修正（午後）**
+- ユーザー報告「検索→周辺タブで現在地に戻らない / 神戸検索が機能しない」を起点に、loadCity / switchTab / selectCity / goToSearchResult の状態管理 race condition を順次解消
+- グローバル変数 currentLoadKey 導入で並行 loadCity を安全にキャンセル（旧 chunks 1-14 が新都市の allToilets を汚染しないよう、各 chunk 完了時に cityKey 一致チェック）
+- selectCity 完了時の UI閉じ + 都市中心 searchPin で距離計算origin修正（`getOriginLatLng()` の優先順位 `searchPin > userLat/Lng > activeCity中心` を逆手に取る）
+- 検索の locationBias 削除でグローバル検索化（NYCから神戸検索が1件しか返らない問題解消）
+- 検索結果 onclick を data 属性経由に（特殊文字を含む name でもクリックで座標が壊れない）
+- languageCode を UI言語トグル（LANG）に連動
+
 **コミット履歴（2026-04-24）**
 - 06baecf: cron基盤 + Phase 1書き換え
 - b40fa81: workflow env修正 + ハードコード鍵削除
 - 886c83d: Kobe bbox拡張 + 住所プレフィックス除去
 - 9730c4e: admin自動降格タブ + HYBRID設計文書
-- (Commit 5予定): TOP5名前解決 + レビューバッジ拡張 + T1フィルタ連動 + SSOT更新
+- 2781b49: TOP5名前解決 + レビューバッジ拡張 + T1フィルタ連動 + SSOT v4.3更新
+- 43190f4: switchTab('near') searchPin clear + flyTo（不完全、後続 cb3f23a で根本修正）
+- b8548fd: 5-deploys-per-session ルール撤廃（CLAUDE.md + SSOT）
+- 1b7b8d0: switchTab('near') に activeCity 切替追加（第2弾、競合バグ未解決）
+- cb3f23a: loadCity 競合バグ根本修正（currentLoadKey 導入、第3弾）
+- 06a476b: goToSearchResult にも同 race condition 対策
+- 6b1bcec: selectCity + switchTab('near') 競合解消
+- 1d9d6d8: selectCity で都市中心に searchPin → 距離計算origin修正
+- c84ed8c: 検索で都市ショートカット + Places API 両方表示
+- 000306e: locationBias 削除でグローバル検索化、languageCode 動的化
+- 4442e87: 検索結果 onclick を data 属性方式化、座標破損バグ対策
 
 ### 完了済み（2026-04-23セッション）
 - ~~3問タップ式レビュー~~ → 実装済み（⭐5評価削除、Q1/Q2/Q3）
