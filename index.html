@@ -1455,6 +1455,11 @@ async function selectCity(k) {
   document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
   document.getElementById('tab-near').classList.add('on');
   showLoading();
+  clearSearchPin();
+  searchPin = L.circleMarker(c.c, {
+    radius: 8, color: '#E53935', fillColor: '#E53935',
+    fillOpacity: 0.9, weight: 2
+  }).addTo(map);
   await loadCity(k);
 }
 
