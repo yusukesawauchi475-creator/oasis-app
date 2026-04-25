@@ -1969,6 +1969,8 @@ async function goToSearchResult(lat, lon, name) {
   if (!target) target = nearestCity(lat, lon);
   if (target && target !== activeCity) {
     activeCity = target;
+    currentLoadKey = target;
+    isLoadingCity = false;
     await loadCity(target);
   }
   searchPin = L.marker([lat, lon], {
