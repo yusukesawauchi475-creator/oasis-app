@@ -1444,10 +1444,16 @@ function expandNearby() {
 async function selectCity(k) {
   if (!CITIES[k]) return;
   activeCity = k;
+  currentLoadKey = k;
+  isLoadingCity = false;
   const c = CITIES[k];
   map.flyTo(c.c, c.z, {duration: 0.9});
   updateHud(k);
   closePicker();
+  document.getElementById('search-panel').classList.remove('show');
+  document.getElementById('nearby').style.display = '';
+  document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
+  document.getElementById('tab-near').classList.add('on');
   showLoading();
   await loadCity(k);
 }
@@ -2057,7 +2063,7 @@ function searchCity(q) {
   );
   if (local.length) {
     document.getElementById('search-results').innerHTML = local.map(([k,c]) =>
-      `<div class="nb-card" onclick="selectCity('${k}');switchTab('near')">
+      `<div class="nb-card" onclick="selectCity('${k}')">
         <span class="nb-tier">${c.flag}</span>
         <div class="nb-info"><div class="nb-name">${cityLabel(k)}</div></div>
       </div>`
