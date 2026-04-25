@@ -2002,7 +2002,12 @@ async function goToSearchResult(lat, lon, name) {
     document.getElementById('hud-name').textContent = name;
   }
   map.flyTo([lat, lon], 15, {duration: 1});
-  switchTab('near');
+  // Critical: do NOT call switchTab('near') here. switchTab('near') resets activeCity to user's
+  // current location and undoes everything goToSearchResult just did. Only switch UI tabs manually.
+  document.querySelectorAll('.btab').forEach(b => b.classList.remove('on'));
+  document.getElementById('tab-near').classList.add('on');
+  document.getElementById('search-panel').classList.remove('show');
+  document.getElementById('nearby').style.display = '';
   setTimeout(() => renderNearby(), 500);
 }
 
