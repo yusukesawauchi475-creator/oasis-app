@@ -1169,6 +1169,7 @@ function restoreSearchPin() {
    DATA LOAD
 ═══════════════════════════════════ */
 let isLoadingCity = false;
+let currentLoadKey = null;
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -1179,6 +1180,7 @@ function withTimeout(promise, ms) {
 async function loadCity(cityKey) {
   if (isLoadingCity) { console.log('[LOAD] skip, already loading'); return; }
   isLoadingCity = true;
+  currentLoadKey = cityKey;
   console.log('[LOAD] start', cityKey);
   ldmsg(tr('loadCity'));
   const ck = `oasis_v6_${cityKey}`;
@@ -1228,6 +1230,7 @@ async function loadCity(cityKey) {
               const arr = snap.data().toilets || [];
               if (arr.length) {
                 toilets = toilets.concat(arr);
+                if (currentLoadKey !== cityKey) { console.log('[LOAD] cancelled', cityKey); return; }
                 arr.forEach(t => { addMarker(t); allToilets.push(t); });
                 refreshZoom();
               }
@@ -2008,6 +2011,8 @@ async function switchTab(tab) {
       if (!target) target = nearestCity(userLat, userLng);
       if (target && target !== activeCity) {
         activeCity = target;
+        currentLoadKey = target;
+        isLoadingCity = false;
         map.flyTo([userLat, userLng], 15, {duration: 1.0});
         await loadCity(target);
       } else {
