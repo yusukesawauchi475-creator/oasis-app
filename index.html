@@ -2084,8 +2084,9 @@ function searchCity(q) {
         const addr = (p.formattedAddress || '').replace(/^(日本[、,]\s*|Japan,\s*|United States,\s*|United Kingdom,\s*|Australia,\s*)/, '');
         const lat = p.location ? p.location.latitude : 0;
         const lng = p.location ? p.location.longitude : 0;
-        const safeName = name.replace(/'/g, "\\'");
-        return `<div class="nb-card" onclick="goToSearchResult(${lat},${lng},'${safeName}')">
+        return `<div class="nb-card"
+          data-lat="${lat}" data-lng="${lng}" data-name="${name.replace(/"/g,'&quot;')}"
+          onclick="goToSearchResult(+this.dataset.lat,+this.dataset.lng,this.dataset.name)">
           <span class="nb-tier">📍</span>
           <div class="nb-info"><div class="nb-name">${name}</div>${addr ? `<div class="nb-meta">${addr.split(',').slice(0,2).join(',')}</div>` : ''}</div>
         </div>`;
