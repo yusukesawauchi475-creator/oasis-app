@@ -2066,15 +2066,13 @@ function searchCity(q) {
   const local = Object.entries(CITIES).filter(([k,c]) =>
     c.ja.includes(q) || c.en.toLowerCase().includes(q.toLowerCase())
   );
-  if (local.length) {
-    document.getElementById('search-results').innerHTML = local.map(([k,c]) =>
-      `<div class="nb-card" onclick="selectCity('${k}')">
-        <span class="nb-tier">${c.flag}</span>
-        <div class="nb-info"><div class="nb-name">${cityLabel(k)}</div></div>
-      </div>`
-    ).join('');
-    return;
-  }
+  const localHtml = local.length ? local.map(([k,c]) =>
+    `<div class="nb-card" onclick="selectCity('${k}')">
+      <span class="nb-tier">${c.flag}</span>
+      <div class="nb-info"><div class="nb-name">${cityLabel(k)}</div></div>
+    </div>`
+  ).join('') : '';
+  document.getElementById('search-results').innerHTML = localHtml;
   // Google Places Text Search (New) — returns location directly, no Place Details needed
   searchTimer = setTimeout(async () => {
     try {
@@ -2096,10 +2094,10 @@ function searchCity(q) {
       const data = await res.json();
       const places = data.places || [];
       if (!places.length) {
-        document.getElementById('search-results').innerHTML = `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">${tr('noResults')}</div>`;
+        document.getElementById('search-results').innerHTML = localHtml + `<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">${tr('noResults')}</div>`;
         return;
       }
-      document.getElementById('search-results').innerHTML = places.map(p => {
+      document.getElementById('search-results').innerHTML = localHtml + places.map(p => {
         const name = (p.displayName && p.displayName.text) || '';
         const addr = (p.formattedAddress || '').replace(/^(日本[、,]\s*|Japan,\s*|United States,\s*|United Kingdom,\s*|Australia,\s*)/, '');
         const lat = p.location ? p.location.latitude : 0;
