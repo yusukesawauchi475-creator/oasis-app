@@ -56,18 +56,41 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,200行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理ダッシュボード（pending承認・レビュー管理・自動降格確認）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
+├── manifest.json                 ← PWAマニフェスト（スタンドアロン表示設定）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← デプロイ前QAチェックリスト（10項目）
+├── HYBRID_DESIGN.md              ← ハイブリッドマップ設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
-│   ├── fix_all_cities.py
-│   ├── ingest_kobe.py
-│   └── ...
+├── .github/workflows/            ← GitHub Actions ワークフロー
+│   ├── monthly-refresh.yml       ← 月次Places APIインジェスト（毎月1日自動実行 ※Issue #22）
+│   ├── nightly-cron.yml          ← 夜間reports集計（Firestoreリードのみ、課金なし）
+│   └── nightly-qa.yml            ← 夜間QA自動チェック
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+│   ├── monthly_refresh.js        ← 月次Refresh本体（Places API呼び出し）
+│   ├── reports_aggregate.js      ← reports集計スクリプト（nightly-cronから呼ばれる）
+│   ├── ingest_kobe.py            ← 神戸データインジェスト
+│   ├── ingest_lodging.py         ← ホテル・宿泊施設インジェスト
+│   ├── fix_all_cities.py         ← 全都市データ一括修正
+│   ├── fix_manhattan.py          ← Manhattan データ修正
+│   ├── fix_bbox_lodging.py       ← BBoxロジック修正
+│   ├── fix_t4_promote.py         ← Tier4プロモート処理
+│   ├── fix_tier3.py              ← Tier3修正
+│   ├── audit_direct.mjs          ← 直接auditスクリプト
+│   ├── audit_final.py            ← 最終audit（Python）
+│   ├── audit_gcloud.py           ← GCloud経由audit
+│   ├── audit_manhattan.py        ← Manhattan専用audit
+│   ├── audit_manhattan_node.mjs  ← Manhattan audit（Node版）
+│   ├── audit_rest.py             ← REST audit
+│   ├── audit_with_auth.mjs       ← 認証付きaudit
+│   ├── package.json              ← scripts/ のNode依存（firebase-admin等）
+│   └── package-lock.json
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -110,6 +133,42 @@ QAは「言われなくてもやる」ことが前提。
 | searchCity | 1895-1950 | Google Places Autocomplete (New) |
 | goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
 | init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+
+## 主要コンポーネント（admin.html内）
+
+| セクション | 内容 |
+|---|---|
+| 認証 | ADMIN_PW平文チェック + localStorage `adminAuth` フラグ（⚠️ Issue #4） |
+| loadPending() | pending_toilets一覧・承認・却下（⚠️ Issue #10 XSS未修正） |
+| loadReviews() | reviews一覧・削除（⚠️ Issue #10 XSS未修正） |
+| loadDowngraded() | 自動降格タブ（⚠️ Issue #19 XSS・Issue #20 Maps URL未修正） |
+| 都市統計タブ | cities/{city}/chunks のTier別件数集計 |
+
+## オープンIssue一覧（2026-04-25時点）
+
+| # | 重要度 | タイトル（要約） |
+|---|---|---|
+| #22 | High | monthly-refresh.yml が CLAUDE.md コスト承認フローを迂回して自動実行 |
+| #21 | Medium | monthly_refresh.js の totalNew カウンターが常に 0（splice後参照） |
+| #20 | Low | admin.html loadDowngraded() 「地図で確認」リンクのURL形式誤り |
+| #19 | High | admin.html loadDowngraded() — XSS（Issue #10 と同パターン） |
+| #18 | Low | notifyNewReview() の .catch(() => {}) が空でエラー無音スキップ |
+| #17 | Low | openDetail() reviews fetch の catch(e) {} が空 |
+| #16 | Medium | submitAdd() — try-catch外で成功UIが表示されサイレントデータロスト |
+| #15 | Low | initMap() に [CHECK] デバッグログが本番残存 |
+| #14 | Medium | isLoadingCity ガードでローディングスピナーが残存・都市切替スキップ |
+| #13 | High | renderNearbyCards/openDetail — t.name が非エスケープで XSS |
+| #12 | Low | submitReview() — null チェック前に「ありがとう」UI表示 |
+| #11 | High | init() geolocation race condition — GPS別都市検出時に地図が空 |
+| #10 | Critical | admin.html — ユーザー投稿データをサニタイズなしで innerHTML に挿入 |
+| #9 | Critical | Firestore rules が `allow write: if true` — 全データが誰でも改ざん可能 |
+| #8 | Medium | goToSearchResult() — loadCity エラー未キャッチでローディング無限表示 |
+| #7 | Medium | loadCity() — Promise.all に try-catch なし → spinner永久表示 |
+| #6 | High | searchCity() — Places APIレスポンスを innerHTML に直接挿入（XSS） |
+| #5 | High | Google Places API Key が index.html にハードコード |
+| #4 | Critical | admin.html に Admin パスワードが平文ハードコード |
+| #3 | Low | localStorage キャッシュ書き込み失敗が無音スキップ |
+| #2 | Medium | Firebase 書き込みの .catch(() => {}) がエラーを握りつぶし |
 
 ## Firestore構造
 
