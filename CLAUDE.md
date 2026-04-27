@@ -56,17 +56,27 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,230行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理ダッシュボード（~870行）。pending承認/downgrade確認/レビュー管理
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
+├── manifest.json                 ← PWAマニフェスト
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← 毎晩QAプロンプト（11項目チェックリスト）
+├── HYBRID_DESIGN.md              ← admin自動降格アーキテクチャ設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
+├── .github/workflows/
+│   ├── nightly-qa.yml            ← 毎晩JST 02:00 にClaudeでQA実行→issue自動作成
+│   ├── monthly-refresh.yml       ← 毎月1日にPlaces APIでデータ更新（⚠️Issue #22: 承認フロー迂回）
+│   └── nightly-cron.yml          ← 毎晩reports集計（Firestore読み取りのみ、課金なし）
 ├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
+│   ├── monthly_refresh.js        ← monthly-refresh.ymlから呼ばれる（⚠️Issue #21: totalNew常に0）
+│   ├── reports_aggregate.js      ← nightly-cron.ymlから呼ばれる
 │   └── ...
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
@@ -91,33 +101,58 @@ QAは「言われなくてもやる」ことが前提。
 
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
-| CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
+| CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 3タップレビュー等） |
 | HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| L10N | 725-828 | JP/EN翻訳辞書 |
+| CITIES | 829-845 | 都市設定（座標, bbox, 旗, 多言語名）15都市 |
+| Firebase init | 851-861 | firebase.initializeApp, Firestore接続テスト |
+| addUIOverlays | 878-918 | lang-toggle, adminモード（5タップ起動） |
+| TIER_CONFIG | 971-998 | brands, types, colors, display設定 |
+| tierKey() | ~1003-1030 | Tier判定ロジック（JP/US分岐, majorTerminals）⚠️Issue #24 |
+| makeIcon/cluster | ~1031-1070 | マーカーアイコン・クラスター生成 |
+| refreshZoom() | ~1079-1155 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1180-1256 | Firestore chunk並列fetch, キャッシュ(v6), withTimeout |
+| renderCity() | ~1280-1350 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | ~1355-1440 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| openDetail() | 1543-1614 | 詳細シート（顔emoji, 投票数, phraseCard, nav/rptボタン） |
+| answerQ1/Q2/Q3 | 1616-1677 | 3タップレビュー（localStorage制限, reviews+reviewSummaries保存）⚠️Issue #27 |
+| nav/nudge | 1712-1740 | Googleマップナビ, 帰宅後レビュー促進 |
+| submitAdd | 1790-1840 | トイレ追加（admin直接 or pending+EmailJS） |
+| startInlineReview/submitReview | 1899-1955 | ⚠️ デッドコード（#inline-reviewがDOM非存在, autoReview未使用）Issue #28参照 |
+| switchTab() | 2014-2044 | タブ切替（Near Me時にGPS都市へリセット） |
+| goToSearchResult() | 1976-2012 | 検索結果へ地図移動（switchTab呼ばずUIタブのみ更新）Issue #26 |
+| searchCity() | 2049-2101 | Google Places Text Search (New API, locationBias無し) |
+| init() | 2180-2225 | 起動フロー（geolocation, loadCity, invalidateSize, visitor counter） |
 
 ## Firestore構造
 
 ```
 oasis-bde20/
-├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体
-├── reviews/                        ← 星評価・投票・詳細レビュー
-├── reviewSummaries/{toiletId}      ← 集計（ratingTotal, access, refused等）
-├── reports/                        ← 問題報告
-└── pending_toilets/                ← ユーザー追加申請（status: pending/approved）
+├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体（15都市 × 最大15chunk）
+├── reviews/{docId}                 ← 3タップレビュー（access/refused/closed/cleanliness/paperSpace）
+├── reviewSummaries/{toiletId}      ← 集計（access, refused, closed のincrement）
+├── reports/{docId}                 ← 問題報告（reason, toiletId, reportedAt）
+├── pending_toilets/{docId}         ← ユーザー追加申請（status: pending/approved）
+└── stats/visitors                  ← 訪問者カウンター（total, today, lastDate）
 ```
+
+## 既知バグ（Open Issues 早見表）
+
+| Issue | 優先度 | 概要 |
+|---|---|---|
+| #9 | Critical | Firestore `allow write: if true` — 全データ誰でも改ざん可 |
+| #5 | High | Google Places APIキーが index.html にハードコード |
+| #4 | High | admin.htmlにAdminパスワード平文ハードコード |
+| #11 | High | init() GPS race condition — 東京ユーザーがManhattanを見る可能性 |
+| #28 | High | startInlineReview/submitReview がデッドコード, nudgeReview機能しない |
+| #27 | High | answerQ3() でlocalStorage記録がFirestore書き込み前（失敗時に再投票不可） |
+| #6,10,13,19 | High | XSS: 複数箇所でFirestore/APIデータをsanitizeせずinnerHTMLに挿入 |
+| #7,8,14 | Medium | loadCity/goToSearchResult: try-catch欠如でローディング永久表示 |
+| #16 | Medium | submitAdd() 失敗時も「✅追加完了」UIが表示される |
+| #22 | Medium | monthly-refresh.yml がCLAUDE.mdのコスト承認フローを迂回して毎月自動実行 |
+| #23 | Medium | me-dot（現在地ピン）がトイレピンの後ろに隠れる（zIndexOffset未設定） |
+| #24 | Medium | subway_station が T1 に誤分類 |
+| #25 | Medium | 「今すぐ入れる」フィルタが営業時間を考慮しない |
+| #15 | Low | console.log('[CHECK]') デバッグコードが本番残存 |
+| #26 | Low | searchPin が2用途で使い回される設計の脆弱性（TechDebt） |
+| #29 | Low | nightly-qa.yml が index.html の末尾31行を読み飛ばす |
