@@ -1598,6 +1598,7 @@ async function openDetail(toilet, autoReview) {
     </div>
     <div class="t-review-count">${reviewCount > 0 ? `${reviewCount} ${LANG==='ja'?'件のレビュー':'reviews'}` : ''}</div>
     <div class="t-info-row">${hoursStr ? `<span class="t-ii">🕐</span>${hoursStr}` : ''}</div>
+    ${(()=>{const o=getOriginLatLng();if(!o)return '';const d=distMeters(o[0],o[1],toilet.lat,toilet.lng);return `<div class="t-info-row"><span class="t-ii">🚶</span>${fmtDist(d)}</div>`;})()}
     ${freeLabel ? `<div class="t-info-row"><span class="t-ii">🆓</span>${freeLabel}</div>` : ''}
     ${phraseCard}
     <div class="t-btn-row">
