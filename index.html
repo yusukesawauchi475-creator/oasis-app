@@ -928,7 +928,7 @@ function initMap() {
     maxZoom: 19, subdomains: 'abcd',
   }).addTo(map);
   map.on('zoomend', () => refreshZoom());
-  map.on('moveend', () => { if (map.getZoom() >= 14) refreshZoom(); });
+  map.on('moveend', () => refreshZoom());
   map.on('click', (e) => {
     // Don't clear searchPin if click is on UI controls (filter bar, legend, add btn)
     const t = e.originalEvent && e.originalEvent.target;
@@ -1125,7 +1125,7 @@ function refreshZoom() {
   } else {
     // Cluster mode
     const grid = {};
-    const cellSize = zoom <= 10 ? 0.5 : (zoom <= 12 ? 0.2 : 0.1);
+    const cellSize = zoom <= 9 ? 0.5 : (zoom <= 11 ? 0.1 : (zoom <= 13 ? 0.03 : 0.01));
     visible.forEach(({toilet}) => {
       const gx = Math.floor(toilet.lng / cellSize);
       const gy = Math.floor(toilet.lat / cellSize);
@@ -1456,9 +1456,14 @@ async function selectCity(k) {
   document.getElementById('tab-near').classList.add('on');
   showLoading();
   clearSearchPin();
-  searchPin = L.circleMarker(c.c, {
-    radius: 8, color: '#E53935', fillColor: '#E53935',
-    fillOpacity: 0.9, weight: 2
+  searchPin = L.marker(c.c, {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="width:16px;height:16px;border-radius:50%;background:#E53935;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    }),
+    zIndexOffset: 10000
   }).addTo(map);
   await loadCity(k);
 }
