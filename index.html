@@ -1002,36 +1002,50 @@ const TIER_WEIGHT = {T1:5, T2_PLUS:4, T2_MINUS:3, T3:2, T4:1, PARTNER:5};
 ═══════════════════════════════════ */
 const JP_CITIES = ['tokyo','osaka','kobe','fukuoka','sapporo','nagoya','kyoto','hiroshima','naha','kagoshima'];
 
-function tierKey(t) {
+function tierKey(t, city) {
+  if (t.tier && typeof t.tier === 'string' && /^(PARTNER|T1|T2_PLUS|T2_MINUS|T3|T4)$/.test(t.tier)) {
+    return t.tier;
+  }
+  return decideTierLocal(t, city || activeCity);
+}
+function decideTierLocal(t, city) {
   if (t.isPartner) return 'PARTNER';
   const name = (t.name || '').toLowerCase();
   const types = t.types || [];
-  const isJP = JP_CITIES.includes(activeCity);
-  // Brand matching
-  if (TIER_CONFIG.brands.T1_US.some(b => name.includes(b))) return 'T1';
-  if (TIER_CONFIG.brands.T2_PLUS.some(b => name.includes(b))) return 'T2_PLUS';
-  // Major US terminals → T1 (have public restrooms)
-  // NYC: Penn Station, Grand Central, Port Authority, Madison Square Garden
-  // Future: Union Station (DC/LA/Chicago), South Station (Boston), 30th St (Philly)
-  const majorTerminals = ['penn station','grand central','port authority','union station','madison square'];
+  const primaryType = t.primaryType || '';
+  const isJP = ['kobe','tokyo','osaka','kyoto','fukuoka','sapporo','nagoya',
+                'hiroshima','naha','kagoshima'].includes(city);
+  const isUS = ['manhattan'].includes(city);
+  const isUK = ['london'].includes(city);
+  const isAU = ['sydney','melbourne','brisbane'].includes(city);
+  if (primaryType === 'public_bathroom' || types.includes('public_bathroom')) return 'T1';
+  if (types.some(tp => ['park','library','city_hall'].includes(tp))) return 'T1';
+  const majorTerminals = ['penn station','grand central','port authority','union station','madison square',
+                          'waterloo','victoria','paddington','liverpool street',
+                          '新宿','渋谷','品川','東京','梅田','難波','京都',
+                          'shinjuku','shibuya','umeda','namba'];
   if (majorTerminals.some(mt => name.includes(mt))) return 'T1';
-  // Transit — subway/train: T1 in JP, T4 elsewhere
-  const transitTypes = ['subway_station','train_station'];
-  if (types.some(tp => transitTypes.includes(tp))) return isJP ? 'T1' : 'T4';
-  // Bus stops — always T4 (no restrooms at bus stops)
-  if (types.some(tp => tp === 'bus_stop' || tp === 'transit_stop')) return 'T4';
-  // Lodging — T4 (guests only)
+  const t2plusBrands = ['starbucks','mcdonald','dunkin','walmart','peets','mos burger','モスバーガー',
+                         'familymart','lawson','7-eleven','seven-eleven','セブン','ファミリーマート','ローソン',
+                         'ministop','ミニストップ','newdays','ニューデイズ',
+                         'whole foods','trader joe','target'];
+  if (t2plusBrands.some(b => name.includes(b))) return 'T2_PLUS';
+  if (types.some(tp => ['subway_station','train_station'].includes(tp))) {
+    if (isJP) return 'T2_PLUS';
+    if (isUS) return 'T4';
+    if (isUK) return 'T2_PLUS';
+    if (isAU) return 'T2_PLUS';
+    return 'T2_MINUS';
+  }
+  if (types.some(tp => ['convenience_store','supermarket','department_store'].includes(tp))) return 'T2_PLUS';
+  if (types.some(tp => ['cafe','food_court'].includes(tp))) return 'T2_PLUS';
   if (types.includes('lodging')) return 'T4';
-  // POI-only — T4 (too vague)
+  if (types.some(tp => ['bus_stop','transit_stop'].includes(tp))) return 'T4';
   if (types.length === 1 && types[0] === 'point_of_interest') return 'T4';
-  // Non-transit T1 types
-  if (types.some(tp => ['park','library','city_hall','public_bathroom'].includes(tp))) return 'T1';
-  if (types.some(tp => TIER_CONFIG.types.T2_PLUS.includes(tp))) return 'T2_PLUS';
-  if (types.some(tp => TIER_CONFIG.types.T3.includes(tp))) return 'T3';
-  if (types.some(tp => TIER_CONFIG.types.T2_MINUS.includes(tp))) return 'T2_MINUS';
-  // Fallback from existing tier number
-  const fb = {1:'T1', 2:'T2_PLUS', 3:'T3', 4:'T4'};
-  return fb[t.tier] || 'T4';
+  if (types.length === 1 && types[0] === 'establishment') return 'T4';
+  if (types.some(tp => ['transit_station','light_rail_station'].includes(tp))) return 'T2_MINUS';
+  if (types.some(tp => ['restaurant','bar','food','meal_takeaway'].includes(tp))) return 'T3';
+  return 'T4';
 }
 
 function makeIcon(toilet) {
