@@ -403,3 +403,70 @@ cities/{cityKey}/chunks/{0-14}
 
 1. 本SSOTをアップロード
 2. 「SSOT読んで。Oasis appのCTO頼む。」で引き継ぎ
+
+---
+
+## Cross-project mistakes (Hum-derived)
+Hum project (humfamily.com) で 2026-04-26〜04-28 に確立された mistake log のうち、
+project 横断適用可能な5項目を Oasis に移植。
+Hum philosophy framework と整合、Oasis core-philosophy 6原則 + audit-checklist 5軸にマッピング。
+
+### mistake 11: 推測実装禁止
+**症状**: 既存 helper / utility / logic の存在を確認せず、推測で新規実装してしまう。結果、format 重複 / bypass logic 発生 / philosophy 軸 (upstream format 統一) violation。
+**rule**:
+- 新規実装着手前、必ず src grep / git log で既存 logic 存在確認
+- 「既存 helper の有無」を Plan Mode 必須項目に組み込む
+- 推測で format 提案禁止、code 引用で根拠提示
+- 事実確認 + 既存状態 + 技術 risk の3軸で audit
+**Oasis 適用**: ingest scripts 27本の lib/ refactor 時、既存 tier 判定 logic / schema 定義の存在を grep で完全 enumeration、推測で新規 logic 書かない。
+
+### mistake 12: 視覚仕様の配置形式確認義務
+**症状**: 配置形式 (container 独立 / overlay / inline / sidebar) が複数解釈可能な視覚要求時、Plan で参考画像 / 配置 sketch を確認せず実装着手 → 完成後 Yusuke 真意と乖離発覚 → rework。
+**rule**:
+- 配置形式が複数解釈可能な視覚仕様要求時、Plan Mode で参考画像 / 配置 sketch を Yusuke に確認してから着手
+- CTO 解釈で先に進めず、視覚 rapid prototype を先出し
+- variation table に「配置形式 (container/overlay/inline/sidebar)」軸を必ず含める
+**Oasis 適用**: 地図 UI / pin 配置 / filter UI 等の視覚要求時、city × zoom × filter 状態の variation table + 配置 sketch を Plan Mode で Yusuke 確認後着手。tier色 / cluster icon / detail sheet レイアウト変更も同様。
+
+### mistake 13: 数値仕様の variation table に「実 data 範囲 simulation」必須
+**症状**: 描画 logic / 数値計算系仕様の variation table が状態 2-3 種しか持たず、実際の input 値範囲での描画結果 simulation が抜ける → 完成後に scale dilution / 表示不能発覚。
+**rule**:
+- 描画 logic / 数値計算系仕様の variation table に「実際の input 値範囲で描画結果が想定通りか」simulation step を必須化
+- input 値の min / max / median / outlier 4点で simulation 実施、各点の出力値を variation table に記載
+- scale dilution / clipping / overflow 等の数値 risk を Plan Mode で先出し
+**Oasis 適用**: tier 計算 logic / region 判定 logic / Firestore query filter の数値 spec 時、実際の data 範囲 (41,580件 + tier 値分布 + region 値分布) で simulation 実施。
+具体例: cluster cellSize 修正時、zoom 11/12/13/14 × 神戸/東京/Manhattan の組み合わせ全部 simulation してから push。zoom 12 で cellSize=0.2度=22km 想定漏れが今日のクラスタ3個問題の原因。
+
+### mistake 14: 実機 test 依頼 prompt 必須項目 4点 checklist
+**症状**: Yusuke 向け実機 test 依頼 prompt に確認 URL / 環境 / cache 状態 明記漏れ → 古い commit 状態 / 別環境 / cache 残留状態で確認 → 「直ってない」誤判定 → panic / rework。
+**rule**: Yusuke 向け実機 test 依頼 prompt に以下4点必須:
+1. **確認 URL** (本番 / preview / dev 明示、URL 完全形)
+2. **commit/push/deploy 状態** (commit hash + Netlify deploy 完了確認手順)
+3. **cache clear 手順** (mobile Safari / mobile Chrome / desktop 別、具体 step 列挙)
+4. **確認項目 list** (期待動作明示、success criteria を測定可能形で記載)
+**Oasis 適用**: city × zoom × filter 状態の実機 test 時、上記4点 checklist を prompt 末尾必須化。
+- iOS Safari: 設定 → Safari → 履歴とWebサイトデータ消去
+- iOS Chrome: 設定 → プライバシー → 閲覧履歴データを削除
+- Desktop: Cmd+Shift+R (Mac) / Ctrl+Shift+R (Win)
+- Netlify deploy 完了確認: https://app.netlify.com → Site → Deploys で commit hash 表示確認
+
+### mistake 15: 実機 test URL 提示時、現行 URL pattern を src grep で fact 確認
+**症状**: 実機 test URL を Yusuke に提示時、現行 routing を src grep で確認せず、過去の URL pattern / memory ベースで提示 → 古形式 URL 提示で Yusuke が 404 遭遇 → panic 誘発。
+**rule**:
+- 実機 test URL を Yusuke に提示する直前、必ず現行 routing logic を src grep で fact 確認
+- memory ベースの URL pattern 提示禁止、src 引用で根拠提示
+**Oasis 適用**: Oasis は単一 HTML + Firestore read 構造、URL routing 仕様が Hum と異なる。
+- 実機 test URL は基本 https://findoasis.app のみ（routing なし）
+- activeCity は内部状態で URL に反映されない（URL parameter 未実装）
+- 将来 URL parameter 追加時 (?city=kobe 等) は src grep で fact 確認必須
+
+---
+
+## philosophy framework との対応
+| Hum mistake | Oasis core-philosophy 対応 | Oasis audit-checklist 軸 |
+|---|---|---|
+| 11. 推測実装禁止 | 原則5 (AI-only verification) | 軸1 (状態変数 audit) |
+| 12. 視覚仕様の配置形式 | 原則2 (ピンが見えなければ意味なし) | 軸2 (描画 audit) |
+| 13. 実 data 範囲 simulation | 原則4 (ロード時間は UX) | 軸4 (Variation table) |
+| 14. 実機 test 4点 checklist | 原則6 (Visibility 依存禁止) | 軸5 (SSOT 更新) |
+| 15. URL pattern fact 確認 | 原則5 (AI-only verification) | 軸1 (状態変数 audit) |
