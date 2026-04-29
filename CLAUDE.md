@@ -56,18 +56,30 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（2,236行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理ダッシュボード（508行）。pending承認/reviews/自動降格管理
+├── manifest.json                 ← PWA manifest
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── HYBRID_DESIGN.md              ← ハイブリッドアーキテクチャ設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
-│   ├── fix_all_cities.py
-│   ├── ingest_kobe.py
-│   └── ...
+├── docs/                         ← 設計思想・監査チェックリスト・ポストモーテム
+│   ├── PHILOSOPHY_README.md
+│   ├── audit-checklist.md
+│   ├── core-philosophy.md
+│   ├── handoff-template.md
+│   └── post-mortems/             ← 障害・哲学違反の記録
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+│   ├── monthly_refresh.js        ← 月次Places APIインジェスト（要コスト承認）
+│   ├── reports_aggregate.js      ← 夜間reports集計（Firestoreのみ、課金なし）
+│   ├── ingest_kobe.py / ingest_lodging.py
+│   ├── fix_all_cities.py / fix_*.py
+│   ├── audit_*.py / audit_*.mjs
+│   └── package.json              ← firebase-admin依存
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -87,29 +99,56 @@ QAは「言われなくてもやる」ことが前提。
 ~/Downloads/OASIS_SSOT.md         ← SSOTのバックアップ（Downloads内）
 ```
 
+## 対応都市（CITIES config、index.html L829-845）
+
+| cityKey | 都市名 | 地域 |
+|---|---|---|
+| manhattan | New York | US |
+| london | London | EU |
+| sydney | Sydney | AU |
+| melbourne | Melbourne | AU |
+| brisbane | Brisbane | AU |
+| tokyo | Tokyo | JP |
+| osaka | Osaka | JP |
+| kobe | Kobe | JP |
+| fukuoka | Fukuoka | JP |
+| sapporo | Sapporo | JP |
+| nagoya | Nagoya | JP |
+| kyoto | Kyoto | JP |
+| hiroshima | Hiroshima | JP |
+| naha | Naha | JP |
+| kagoshima | Kagoshima | JP |
+
 ## 主要コンポーネント（index.html内）
 
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
 | CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
 | HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| L10N | 725-828 | JP/EN翻訳辞書 |
+| CITIES config | 829-845 | 15都市の座標・bbox・フラグ定義 |
+| Firebase init | 851-861 | firebase.initializeApp, Firestore接続（起動時ヘルスチェック含む※Issue #30） |
+| addUIOverlays | 878-919 | lang-toggle, adminモード |
+| initMap() | 920-966 | Leaflet地図初期化（※Issue #15のデバッグconsole.log残存） |
+| TIER_CONFIG | 971-1002 | brands, types, colors, display設定 |
+| tierKey() | 1003-1035 | Tier判定ロジック（JP/US分岐, transitTypes） |
+| makeIcon/cluster | 1037-1053 | マーカーアイコン生成 |
+| applyFilter/refreshZoom | 1082-1175 | フィルタ適用, マーカー描画（viewport/cluster切替） |
+| loadCity() | 1180-1265 | Firestore chunk並列fetch, キャッシュ(v5), loadKey管理 |
+| renderCity() | 1296-1345 | allMarkers生成, applyFilter, renderNearby |
+| distance helpers | 1328-1347 | distMeters(), fmtDist()（徒歩時間計算） |
+| renderNearby() | 1374-1440 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| selectCity() | 1444-1490 | 都市切り替え（searchPin設置, loadCity呼び出し） |
+| goToMe() | 1492-1545 | GPS現在地取得・表示 |
+| openDetail() | 1548-1624 | 詳細シート（3-tap review, 距離表示, Googleナビ） |
+| answerQ1/Q2/Q3 | 1625-1720 | 3タップレビューシステム（※Issue #27のlocalStorage順序バグ） |
+| submitAdd() | 1796-1815 | トイレ追加（admin直接 or pending+EmailJS） |
+| adminDirectAdd() | 1817-1843 | 管理者直接追加（chunk選択, Firestore書き込み） |
+| notifyNew* | 1850-1935 | EmailJS通知（notifyNewToilet/notifyNewReview） |
+| submitReview() | 1937-1980 | ※デッドコード（Issue #28）。到達不能 |
+| goToSearchResult() | 1982-2052 | 検索結果に飛ぶ（map.setView, searchPin設置） |
+| searchCity() | 2055-2183 | Google Places Autocomplete + 都市ショートカット |
+| init() | 2186-2231 | 起動フロー（geolocation race condition※Issue #11, loadCity） |
 
 ## Firestore構造
 
