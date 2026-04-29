@@ -20,7 +20,7 @@
 
 ---
 
-## Current state（2026-04-24 v4.3）
+## Current state（2026-04-28 v4.4）
 
 ### データ
 - 全15都市・約41,580件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇/鹿児島）
@@ -136,19 +136,53 @@
 - TODO: マーケ前にFirebase Auth導入してcustom claim admin判定に移行
 
 ### 残課題
-1. **現在地ピンが埋もれる**（z-index問題、後ろのトイレピンに隠れて見えない、me-dot divIcon の zIndexOffset 要調整）
-2. **Tier誤分類**（地下鉄トイレが T1 扱いの誤り、tierKey() の transit types 判定ロジック見直し）
-3. **営業時間チェックなし**（24h営業以外の店舗で「今すぐ入れる」フィルタが嘘になる、hours フィールドの現在時刻判定が未実装）
-4. **Phase 2: ~/oasis-ingest/ 27本のenv移行**（現状ハードコード、ingestスクリプト群のローカル実行用、1本ずつ検証しながら対応）
-5. **レビュースキーマ統一**（quickVote: access/refused/closed/cleanliness/paperSpace、submitReview: access/priv/paper/comment。DB内に2種類混在、書き込み側統一は要UX設計）
-6. **レビュー閲覧 Phase B/C**（都市別・期間・Yesのみフィルタ、CSVエクスポート、トイレ別集約、NLPキーワード抽出、悪評アラート）
-7. **index.html ブラウザ用Placesキー Application restrictions未設定**（理想: findoasis.app 限定のWebsites制限追加）
-8. **admin dashboard map可視化**（レビューありトイレのpinのみ、tier色分け、クリック詳細）
-9. **Manhattan bbox拡張**（Weehawken/Hoboken/Jersey City）
-10. **Firebase Auth導入**（マーケ開始前必須、匿名Auth + Google Sign-in 2段階）
-11. **I know IBD Partner ingest**（2,884店舗、isPartner:true、月次更新）
-12. **マーケ開始**（JP: X/Twitter、US: Reddit IBD communities）
-13. **英語名残り6,434件の処理**（店名等、優先度低）
+**緊急（ユーザー影響、進行中）**
+1. tier ロジック single source 化（ingest 時確定 → frontend は読むだけ）
+2. ingest 系全 refactor（lib/ 共通モジュール化）
+3. データ修復スクリプト（既存41,580件に primaryType 補完）
+
+**データ improve 5案（並行進行、優先度順）**
+1. 競合スクレイピング（OSM, 自治体オープンデータ）→ 神戸テスト中
+2. 駅構内親子データ構造（IBD 差別化、5月本格着手）
+3. レビューデータ逆引き enrichment
+4. ユーザー新規追加機能
+5. 営業時間 Places Detail enrichment（コスト ~$700、後回し）
+
+**Phase 2: ~/oasis-ingest/ 27本のenv移行**(保留中)
+
+**他の残課題**
+- レビュースキーマ統一（quickVote vs submitReview）
+- レビュー閲覧 Phase B/C
+- index.html ブラウザ用Placesキー Application restrictions未設定
+- admin dashboard map可視化
+- Manhattan bbox拡張（Weehawken/Hoboken/Jersey City）
+- Firebase Auth導入（マーケ開始前必須）
+- I know IBD Partner ingest（2,884店舗）
+- マーケ開始（JP: X/Twitter、US: Reddit IBD communities）
+- 英語名残り6,434件の処理（優先度低）
+
+### 完了済み（2026-04-28セッション）
+**バグ修正（10+ commits、ユーザー影響）**
+- searchPin 神戸11000km問題（loadCity競合バグ）→ cb3f23a, 06a476b, 6b1bcec
+- 都市選択後の距離10000km再発 → 1d9d6d8
+- 検索結果タップでNYCに飛び戻る → goToSearchResult から switchTab('near') 削除
+- 神戸クラスタが3個しか出ない → cellSize 0.2→0.03度に細分化
+- ズームアウトでパン後にクラスタ消える → moveend ハンドラの zoom>=14 ガード削除
+- searchPin が他レイヤーに埋もれる → L.circleMarker → L.marker + zIndexOffset 10000
+
+**Philosophy framework 導入（Hum project から移植）**
+- docs/core-philosophy.md(6原則)
+- docs/audit-checklist.md(5軸 audit)
+- docs/handoff-template.md
+- docs/PHILOSOPHY_README.md
+- docs/post-mortems/ ディレクトリ
+
+**データ品質 audit（重大な構造的バグ5件発見）**
+- ingest tier ロジックと frontend tier ロジックの分離（地下鉄=T1 バグの根本）
+- ingest 3スクリプトで FieldMask 不統一
+- sim_cities.js bbox が古い
+- CHUNK_SIZE 500 vs 800 不整合
+- 重複排除が Place ID のみ
 
 ### 完了済み（2026-04-24セッション）
 
