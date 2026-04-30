@@ -56,14 +56,19 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,250行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理画面（パスワード保護）。申請承認・レビュー管理
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
+├── manifest.json                 ← PWA マニフェスト
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
 ├── CLAUDE.md                     ← このファイル
+├── HYBRID_DESIGN.md              ← ハイブリッドアーキテクチャ設計メモ
+├── OASIS_QA.md                   ← 定期QAチェックリスト（11項目）
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
+├── docs/                         ← 設計・哲学ドキュメント
 ├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
@@ -92,24 +97,26 @@ QAは「言われなくてもやる」ことが前提。
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
 | CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
-| HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| HTML | 595-731 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
+| L10N | 733-814 | JP/EN翻訳辞書（85キー） |
+| Firebase init | 851-862 | firebase.initializeApp, Firestore接続, 起動時ヘルスチェック |
+| addUIOverlays | 878-966 | lang-toggle, adminモード, initMap |
+| TIER_CONFIG | 971-996 | brands, types, colors, display設定（※brandsはdecideTierLocalで未参照 → issue#31） |
+| tierKey() / decideTierLocal() | 1005-1049 | Tier判定ロジック（JP/US/UK/AU分岐, majorTerminals） |
+| makeIcon/cluster | 1051-1067 | マーカーアイコン・クラスターアイコン生成 |
+| scoreToilets / applyFilter | 1069-1102 | スコアリング, フィルター適用 |
+| refreshZoom() | 1105-1169 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1194-1270 | Firestore chunk並列fetch, キャッシュ(v6), pending_toilets読込 |
+| renderCity() | 1310-1323 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1388-1410 | 近傍リスト（searchPin/GPS起点, stageExpand, 5件+展開） |
+| openDetail() | 1562-1634 | 詳細シート（顔アイコン, 投票数, 3Dボタン, phraseCard） |
+| answerQ1/Q2/Q3 | 1636-1697 | 3問タップ式レビュー → Firestore reviews + reviewSummaries |
+| startInlineReview/submitReview | 1919-1974 | レガシーインラインレビュー（dead code、issue#28参照） |
+| submitAdd / adminDirectAdd | 1810-1857 | トイレ追加（admin直接chunk書込 or pending+EmailJS） |
+| searchCity | 2069-2121 | Google Places Text Search (New)、ローカル都市優先 |
+| goToSearchResult | 1996-2032 | 検索結果→都市切替→searchPin設置→renderNearby |
+| switchTab | 2034-2064 | Near Me / Search タブ切替 |
+| init() | 2200-2247 | 起動フロー（geolocation, loadCity, 訪問者カウンター） |
 
 ## Firestore構造
 
