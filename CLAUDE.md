@@ -41,7 +41,7 @@ deployまでの必須フロー：
 ## 自律的QA実行ルール
 セッション終盤や「次何する」と聞かれた時、指示を待たずに以下を自動実行：
 
-1. OASIS_QA.md の10項目全チェック
+1. OASIS_QA.md の11項目全チェック
 2. 実機動作想定シミュレーション：
    - 全ボタンのonclick接続確認
    - 前進/戻る動作の整合性
@@ -51,23 +51,36 @@ deployまでの必須フロー：
 4. 修正案を提示（実行はオーナー承認後）
 
 QAは「言われなくてもやる」ことが前提。
+OASIS_QA.md のセクション数は **11項目**（1〜11）。
 
 ## ファイル構成
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,250行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理パネル（パスワード保護、3タブ: ダッシュボード/申請/レビュー）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
+├── manifest.json                 ← PWA manifest
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── HYBRID_DESIGN.md              ← ハイブリッドアーキテクチャ Phase 1/2 設計文書
 ├── CLAUDE.md                     ← このファイル
+├── OASIS_QA.md                   ← 夜間QAプロンプト（11項目）
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
+├── docs/                         ← Philosophy framework（Hum project から移植）
+│   ├── core-philosophy.md        ← 6原則
+│   ├── audit-checklist.md        ← 5軸audit
+│   ├── handoff-template.md
+│   ├── PHILOSOPHY_README.md
+│   └── post-mortems/             ← バグ事後分析
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
-│   └── ...
+│   ├── monthly_refresh.js        ← 月次新規place追加（GitHub Actions経由）
+│   ├── reports_aggregate.js      ← 3件報告で自動Tier4降格（GitHub Actions経由）
+│   └── ...（audit_*.py/mjs, fix_*.py 多数）
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -89,35 +102,38 @@ QAは「言われなくてもやる」ことが前提。
 
 ## 主要コンポーネント（index.html内）
 
-| セクション | 行範囲(概算) | 内容 |
+| セクション | 行範囲(実測) | 内容 |
 |---|---|---|
 | CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
 | HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| L10N + CITIES | 738-845 | JP/EN翻訳辞書 + 15都市定義（center/bbox/zoom） |
+| Firebase init | 851-870 | firebase.initializeApp, Firestore接続 |
+| addUIOverlays | 878-970 | lang-toggle, adminモード（5回タップ） |
+| TIER_CONFIG | 971-1003 | brands, types, colors, display設定（⚠️ brands/typesはデッドコード #35） |
+| tierKey() / decideTierLocal() | 1005-1050 | Tier判定ロジック（JP/US分岐, majorTerminals） |
+| makeIcon/cluster | 1051-1090 | マーカーアイコン生成 |
+| applyFilter / refreshZoom() | 1096-1190 | フィルター + マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1194-1300 | Firestore chunk並列fetch, キャッシュ(oasis_v6_*) |
+| renderCity() | 1310-1365 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1388-1460 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| selectCity() / updateHud() | 1458-1500 | 都市切替, HUD更新 |
+| openDetail() | 1562-1638 | 詳細シート（顔アイコン, 3問タップレビュー, 投票件数, 3Dボタン） |
+| answerQ1/Q2/Q3 | 1639-1700 | 3問タップ式レビュー（⭐星評価は削除済み） |
+| submitAdd() / notifyNewToilet() | 1810-1895 | トイレ追加（admin直接 or pending+EmailJS） |
+| submitReview() / notifyNewReview() | 1951-1995 | レビュー送信 + EmailJS通知 |
+| goToSearchResult() / switchTab() | 1996-2068 | 検索結果表示, タブ切替 |
+| searchCity() | 2069-2125 | Google Places Text Search (New) |
+| applyLang() | 2178-2195 | 言語適用（⚠️ updateHud未呼び出し #33） |
+| init() | 2200-2250 | 起動フロー（geolocation, loadCity, invalidateSize） |
 
 ## Firestore構造
 
 ```
 oasis-bde20/
-├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体
-├── reviews/                        ← 星評価・投票・詳細レビュー
-├── reviewSummaries/{toiletId}      ← 集計（ratingTotal, access, refused等）
-├── reports/                        ← 問題報告
-└── pending_toilets/                ← ユーザー追加申請（status: pending/approved）
+├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体（⚠️ allow write: if true #36）
+├── reviews/                        ← 3問タップ式レビュー（create only）
+├── reviewSummaries/{toiletId}      ← 集計（access/refused/closed）（⚠️ allow update: if true #38）
+├── reports/                        ← 問題報告（create only）
+├── pending_toilets/                ← ユーザー追加申請（⚠️ allow update: if true #37）
+└── stats/visitors                  ← 訪問者カウンター（total/today/lastDate）
 ```
