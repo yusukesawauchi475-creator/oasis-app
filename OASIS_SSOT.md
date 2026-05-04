@@ -20,7 +20,7 @@
 
 ---
 
-## Current state（2026-04-28 v4.4）
+## Current state（2026-05-04 v4.5）
 
 ### データ
 - 全15都市・約41,580件（Manhattan/London/Tokyo/Osaka/Kobe/Sydney/Melbourne/Brisbane/福岡/札幌/名古屋/京都/広島/那覇/鹿児島）
@@ -136,30 +136,64 @@
 - TODO: マーケ前にFirebase Auth導入してcustom claim admin判定に移行
 
 ### 残課題
+
 **緊急（ユーザー影響、進行中）**
-1. tier ロジック single source 化（ingest 時確定 → frontend は読むだけ）
-2. ingest 系全 refactor（lib/ 共通モジュール化）
-3. データ修復スクリプト（既存41,580件に primaryType 補完）
+1. ingest scripts lib/ refactor（Phase 2 本体）
+   - lib/ 5本作成済み（285090e）。ingest 28本中で require してるのは 0/28 = 物理 enforcement 未達成
+   - 対象（write系優先度順）: ingest.js, expand_bbox.js, ingest_kagoshima.js, ingest_kobe_west.js, monthly_refresh.js
+   - read/audit系（analyze_*, check_*, tier_audit, tier_analysis 等）は触らない
+2. データ修復スクリプト（既存41,580件）
+   - primaryType 補完
+   - kobe meta.count 1118 → 2563 修正（※ 1118/2563 は memory ベース、Phase 4 着手時に Firestore cities/kobe/meta で fact 確認必須）
+   - 全15都市分、Places Detail API 使用
+3. tier_logic Phase 2: frontend fallback 段階的削除
+   - 全データに文字列 tier 入った後 decideTierLocal を削除
+   - lib/tier_logic.js 単一 source への完全移行
 
 **データ improve 5案（並行進行、優先度順）**
-1. 競合スクレイピング（OSM, 自治体オープンデータ）→ 神戸テスト中
+1. 競合スクレイピング（OSM, 自治体オープンデータ）→ 神戸テスト未着手
 2. 駅構内親子データ構造（IBD 差別化、5月本格着手）
 3. レビューデータ逆引き enrichment
 4. ユーザー新規追加機能
 5. 営業時間 Places Detail enrichment（コスト ~$700、後回し）
 
-**Phase 2: ~/oasis-ingest/ 27本のenv移行**(保留中)
+**COO directive（2026-05-03 受領）**
+- Oasis vs 競合（Google Maps / Flush / Refuge Restrooms 等）gap 分析
+- 期限: 48-72時間
+- deliverable: SYNC_DUMP block で COO に俯瞰提示
+- 進行: Marketing chat 起動 or Boss chat 直接、Yusuke 判断待ち
+
+**構造課題（2026-05-04 発見）**
+- Project 内 chat（Boss/CTO/Marketing）と project 外（COO/Hermes）で memory 同期しない
+- 解決: SSOT.md を唯一の Source of Truth として全 chat 必読化
+- 実装: handoff-template.md に「セッション開始時の必須 fact 確認 protocol」追加（本 commit で対応）
+- 運用: Hermes による SYNC_DUMP → SSOT 自動更新で物理 enforcement
 
 **他の残課題**
 - レビュースキーマ統一（quickVote vs submitReview）
 - レビュー閲覧 Phase B/C
-- index.html ブラウザ用Placesキー Application restrictions未設定
-- admin dashboard map可視化
-- Manhattan bbox拡張（Weehawken/Hoboken/Jersey City）
-- Firebase Auth導入（マーケ開始前必須）
+- Places ブラウザ key Application restrictions 未設定
+- admin dashboard 地図可視化
+- Manhattan bbox 拡張（Weehawken/Hoboken/Jersey City）
+- Firebase Auth 導入（マーケ前必須）
 - I know IBD Partner ingest（2,884店舗）
 - マーケ開始（JP: X/Twitter、US: Reddit IBD communities）
 - 英語名残り6,434件の処理（優先度低）
+
+### 完了済み（2026-04-29 / 2026-05-02 セッション）
+
+**2026-04-29**
+- tier_logic single source 化 Phase 1 完了（285090e）
+  * lib/tier_logic.js 作成（~/oasis-ingest/lib/）、ingest と frontend で同じ判定ロジック使えるようになった
+  * frontend の tierKey() は保存tier優先 + decideTierLocal fallback 構成
+- Hum mistake 11-15 移植（0e52d67）
+  * Cross-project mistakes セクション追加
+  * core-philosophy.md にも参照リンク追記
+
+**2026-05-02**
+- zoom レベル 13→14 修正（21424a7）
+  * 全都市 default で個別バブル表示に変更
+  * cluster mode から bubble mode に default 切替
 
 ### 完了済み（2026-04-28セッション）
 **バグ修正（10+ commits、ユーザー影響）**
@@ -418,7 +452,7 @@ Hum philosophy framework と整合、Oasis core-philosophy 6原則 + audit-check
 - 「既存 helper の有無」を Plan Mode 必須項目に組み込む
 - 推測で format 提案禁止、code 引用で根拠提示
 - 事実確認 + 既存状態 + 技術 risk の3軸で audit
-**Oasis 適用**: ingest scripts 27本の lib/ refactor 時、既存 tier 判定 logic / schema 定義の存在を grep で完全 enumeration、推測で新規 logic 書かない。
+**Oasis 適用**: ingest scripts 28本の lib/ refactor 時、既存 tier 判定 logic / schema 定義の存在を grep で完全 enumeration、推測で新規 logic 書かない。
 
 ### mistake 12: 視覚仕様の配置形式確認義務
 **症状**: 配置形式 (container 独立 / overlay / inline / sidebar) が複数解釈可能な視覚要求時、Plan で参考画像 / 配置 sketch を確認せず実装着手 → 完成後 Yusuke 真意と乖離発覚 → rework。
@@ -470,3 +504,25 @@ Hum philosophy framework と整合、Oasis core-philosophy 6原則 + audit-check
 | 13. 実 data 範囲 simulation | 原則4 (ロード時間は UX) | 軸4 (Variation table) |
 | 14. 実機 test 4点 checklist | 原則6 (Visibility 依存禁止) | 軸5 (SSOT 更新) |
 | 15. URL pattern fact 確認 | 原則5 (AI-only verification) | 軸1 (状態変数 audit) |
+
+---
+
+## 検索ズーム挙動のメカニズム（2026-05-01 判明）
+
+### 仕組み
+
+1. `searchCity(q)` → Google Places Text Search → 結果tap → `goToSearchResult(lat, lon, name)`
+2. または `selectCity(k)` → `map.flyTo(CITIES[k].c, CITIES[k].z)`
+3. flyTo完了 → `zoomend` イベント → `refreshZoom()` 発火
+4. `refreshZoom()` 内: `zoom >= 14` → 個別bubble / `zoom < 14` → clusterバブル
+
+### 既知バグ: z:13都市はcluster止まり
+
+- `refreshZoom()` の切り替えthreshold = **zoom 14**（行 1125）
+- `CITIES` の z:13都市（osaka, kobe, london, sydney, melbourne, brisbane, fukuoka, sapporo, nagoya, kyoto, hiroshima, naha, kagoshima）は flyTo後 zoom 13着地 → cluster bubble のまま
+- `manhattan (z:15)` と `tokyo (z:12)` は意図的な値（tokyoはデータ量多く広域表示が適切）
+
+### 解決済み（2026-05-02 commit 21424a7）
+
+全都市の z 値を z:14 に統一済み（manhattan z:15、tokyo z:12 は据置）。
+commit: 21424a7 fix: zoom level 13→14 for cities to show individual bubbles instead of cluster
