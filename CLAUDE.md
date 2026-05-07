@@ -56,17 +56,32 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,250行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理画面（pending承認/却下、ダウングレード確認）
+├── manifest.json                 ← PWA manifest
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── HYBRID_DESIGN.md              ← ハイブリッドTier設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
+├── OASIS_QA.md                   ← QAチェックリスト
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
+├── .github/workflows/            ← GitHub Actions
+│   ├── nightly-qa.yml
+│   ├── nightly-cron.yml
+│   └── monthly-refresh.yml
+├── docs/                         ← 設計・哲学ドキュメント
+│   ├── core-philosophy.md
+│   ├── audit-checklist.md
+│   ├── handoff-template.md
+│   ├── PHILOSOPHY_README.md
+│   └── post-mortems/
 ├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
+│   ├── monthly_refresh.js
 │   └── ...
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
@@ -89,27 +104,32 @@ QAは「言われなくてもやる」ことが前提。
 
 ## 主要コンポーネント（index.html内）
 
+※行番号はコード変更のたびにずれるため概算。コード検索時は関数名で grep 推奨。
+
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
-| CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
-| HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| CSS | 26-636 | 全スタイル（シート, マーカー, フィルター, 投票等） |
+| HTML | 638-732 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
+| L10N | 733-813 | JP/EN翻訳辞書 |
+| Firebase init | 851-861 | firebase.initializeApp, Firestore接続 |
+| addUIOverlays | 878-919 | lang-toggle, adminモード |
+| TIER_CONFIG | 971-999 | brands, types, colors, display設定 |
+| tierKey() | 1005-1010 | Tier判定ロジック（文字列tier直接返却 or decideTierLocal） |
+| decideTierLocal() | 1011-1049 | JP/US/UK/AU分岐, majorTerminals, ブランド判定 |
+| makeIcon/cluster | 1051-1068 | マーカーアイコン生成 |
+| scoreToilets() | 1069-1079 | 距離+Tier重み付けソート（現在未使用・デッドコード） |
+| refreshZoom() | 1105-1170 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1194-1270 | Firestore chunk並列fetch, キャッシュ(v6) |
+| renderCity() | 1310-1323 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1388-1452 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| openDetail() | 1562-1633 | 詳細シート（顔, 投票件数, 3Dボタン） |
+| answerQ1/Q2/Q3 | 1639-1697 | 3ステップレビュー（アクセス→清潔→ペーパー） |
+| submitReview() | 1951-1979 | 詳細インラインレビュー送信（Transactionあり） |
+| submitAdd() | 1810-1829 | トイレ追加（admin直接 or pending+EmailJS） |
+| searchCity() | 2069-2121 | Google Places Text Search API (New) |
+| goToSearchResult() | 1996-2032 | 検索結果ピン配置 + 都市切替 |
+| switchTab() | 2034-2064 | Near Me / Search タブ切替 |
+| init() | 2200-2247 | 起動フロー（geolocation, loadCity, 訪問者カウンター） |
 
 ## Firestore構造
 
