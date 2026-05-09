@@ -56,18 +56,32 @@ QAは「言われなくてもやる」ことが前提。
 
 ```
 ~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+├── index.html                    ← 本番SPA（~2,250行）。Leaflet地図+全UIロジック
+├── manifest.json                 ← PWA設定（アイコン, スタンドアロン表示）
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── HYBRID_DESIGN.md              ← ハイブリッド設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
+├── .github/workflows/            ← GitHub Actions
+│   ├── nightly-qa.yml            ← 毎夜Claude APIでQA自動実行（JST 02:00）
+│   ├── nightly-cron.yml          ← 毎夜レポート集計（JST 03:00）
+│   └── monthly-refresh.yml      ← 月次データリフレッシュ（⚠️ コスト承認必須）
+├── docs/                         ← ドキュメント類
+│   ├── PHILOSOPHY_README.md
+│   ├── audit-checklist.md
+│   ├── core-philosophy.md
+│   ├── handoff-template.md
+│   └── post-mortems/
+├── scripts/                      ← audit/fix/ingest/集計スクリプト（Python/Node）
+│   ├── monthly_refresh.js        ← 月次データリフレッシュ本体
+│   ├── reports_aggregate.js      ← レポート集計本体
 │   ├── fix_all_cities.py
 │   ├── ingest_kobe.py
-│   └── ...
+│   └── ...（audit_*.py, fix_*.py 多数）
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -92,32 +106,38 @@ QAは「言われなくてもやる」ことが前提。
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
 | CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
-| HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| HTML | 595-728 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
+| L10N + setLang | 736-824 | JP/EN翻訳辞書, 言語切替 |
+| CITIES | 829-845 | 15都市の定義（座標, bbox, flag） |
+| Firebase init | 851-873 | firebase.initializeApp, Firestore接続, STATE変数 |
+| addUIOverlays | 878-918 | lang-toggle, adminモード（handleAdminTap, updateAdminUI） |
+| initMap() | 920-966 | Leaflet初期化, zoomend/moveend/click イベント |
+| TIER_CONFIG | 971-1002 | brands, types, colors, display設定 |
+| tierKey() | 1003-1050 | Tier判定ロジック（JP/US分岐, majorTerminals, decideTierLocal） |
+| makeIcon/cluster | 1051-1092 | マーカーアイコン生成, addMarker, clearMarkers |
+| refreshZoom() | 1094-1180 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1194-1308 | Firestore chunk並列fetch, キャッシュ(v6), loadPendingToilets |
+| renderCity() | 1310-1338 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1342-1453 | 近傍リスト（searchPin/GPS起点, stageExpand, expandNearby） |
+| selectCity/HUD | 1458-1501 | 都市選択, HUD更新, setFilter |
+| goToMe/detectCity | 1506-1543 | GPS位置取得, 都市自動判定 |
+| openDetail() | 1562-1633 | 詳細シート（顔, 投票数, 3Dボタン, phraseCard） |
+| answerQ1/Q2/Q3 | 1637-1697 | 3問クイック投票（localStorage制限, reviewSummaries更新） |
+| submitAdd | 1810-1857 | トイレ追加（admin直接 or pending+EmailJS, adminDirectAdd） |
+| startInlineReview | 1919-1975 | インラインレビュー送信（旧フロー, 現在 nudge 経由のみ） |
+| 検索/タブ系 | 1980-2063 | clearSearchPin, goToSearchResult, switchTab |
+| searchCity | 2069-2121 | Google Places Text Search (New) API |
+| renderInlineLegend | 2126-2142 | 凡例描画（T2_MINUS欠落 issue#40） |
+| init() | 2200-2247 | 起動フロー（geolocation, loadCity, 訪問者カウンター） |
 
 ## Firestore構造
 
 ```
 oasis-bde20/
-├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体
-├── reviews/                        ← 星評価・投票・詳細レビュー
-├── reviewSummaries/{toiletId}      ← 集計（ratingTotal, access, refused等）
-├── reports/                        ← 問題報告
-└── pending_toilets/                ← ユーザー追加申請（status: pending/approved）
+├── cities/{cityKey}/chunks/{0-14}  ← トイレデータ本体（15都市 × 最大15 chunk）
+├── reviews/                        ← クイック投票（access/refused/closed/cleanliness/paperSpace）
+├── reviewSummaries/{toiletId}      ← 集計（total, access, refused, closed, priv, paper）
+├── reports/                        ← 問題報告（reason, toiletId, reportedAt）
+├── pending_toilets/                ← ユーザー追加申請（status: pending/approved）
+└── stats/visitors                  ← 訪問者カウンター（total, today, lastDate）
 ```
