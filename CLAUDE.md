@@ -55,19 +55,34 @@ QAは「言われなくてもやる」ことが前提。
 ## ファイル構成
 
 ```
-~/Oasis/                          ← Git root, Netlifyデプロイ元
-├── index.html                    ← 本番SPA（~2,100行）。Leaflet地図+全UIロジック
+~/oasis-app/                      ← Git root (remote: yusukesawauchi475-creator/oasis-app)
+├── index.html                    ← 本番SPA（2,250行）。Leaflet地図+全UIロジック
+├── admin.html                    ← 管理者ダッシュボード（pending承認・Tier確認）
+├── manifest.json                 ← PWA manifest
 ├── oasis-logo.jpg                ← アプリロゴ（favicon, apple-touch-icon）
 ├── OASIS_SSOT.md                 ← 引き継ぎドキュメント（SSOT）
+├── OASIS_QA.md                   ← QAチェックリスト（11項目）
+├── HYBRID_DESIGN.md              ← ハイブリッド設計ドキュメント
 ├── CLAUDE.md                     ← このファイル
 ├── netlify.toml                  ← Netlify設定（Cache-Control: no-cache）
 ├── firebase.json                 ← Firebase CLI設定（firestoreルール参照）
 ├── firestore.rules               ← Firestoreセキュリティルール
 ├── .gitignore                    ← node_modules, app/, supabase/, .csv除外
-├── scripts/                      ← 過去のaudit/fix/ingestスクリプト（Python/Node）
-│   ├── fix_all_cities.py
-│   ├── ingest_kobe.py
-│   └── ...
+├── .github/workflows/
+│   ├── nightly-qa.yml            ← 毎晩JST 02:00にClaude APIでQA自動実行・issue作成
+│   ├── nightly-cron.yml          ← nightly cronジョブ
+│   └── monthly-refresh.yml       ← 月次データリフレッシュ
+├── docs/
+│   ├── PHILOSOPHY_README.md
+│   ├── audit-checklist.md
+│   ├── core-philosophy.md
+│   └── handoff-template.md
+├── scripts/                      ← audit/fix/ingestスクリプト（Python/Node）
+│   ├── audit_direct.mjs / audit_final.py / audit_gcloud.py
+│   ├── fix_all_cities.py / fix_bbox_lodging.py / fix_manhattan.py
+│   ├── ingest_kobe.py / ingest_lodging.py
+│   ├── monthly_refresh.js / reports_aggregate.js
+│   └── package.json
 ├── app/                          ← React Native (Expo) 旧版。.gitignore除外。未使用
 └── supabase/                     ← Supabase functions。.gitignore除外。未使用
 
@@ -83,33 +98,34 @@ QAは「言われなくてもやる」ことが前提。
 ├── count_partners.js             ← isPartner件数確認
 ├── count_west_manhattan.js       ← Weehawken側データ件数
 └── package.json                  ← firebase-admin依存
-
-~/Downloads/OASIS_SSOT.md         ← SSOTのバックアップ（Downloads内）
 ```
 
 ## 主要コンポーネント（index.html内）
 
+※ index.html は現在 **2,250行**。行番号は概算（コード変更のたびにずれる）。
+
 | セクション | 行範囲(概算) | 内容 |
 |---|---|---|
-| CSS | 17-590 | 全スタイル（シート, マーカー, フィルター, 投票等） |
-| HTML | 595-720 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
-| L10N | 725-810 | JP/EN翻訳辞書 |
-| Firebase init | 850-865 | firebase.initializeApp, Firestore接続 |
-| addUIOverlays | 879-920 | lang-toggle, adminモード |
-| TIER_CONFIG | 969-994 | brands, types, colors, display設定 |
-| tierKey() | 1003-1025 | Tier判定ロジック（JP/US分岐, majorTerminals） |
-| makeIcon/cluster | 1027-1040 | マーカーアイコン生成 |
-| refreshZoom() | 1079-1145 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
-| loadCity() | 1160-1210 | Firestore chunk並列fetch, キャッシュ(v5) |
-| renderCity() | 1215-1245 | allMarkers生成, applyFilter, renderNearby |
-| renderNearby() | 1290-1330 | 近傍リスト（searchPin/GPS起点, stageExpand） |
-| openDetail() | 1375-1455 | 詳細シート（星, 顔, 投票, 3Dボタン） |
-| rateStar/quickVote | 1457-1495 | 星評価・投票（localStorage制限, reviewSummaries） |
-| submitReview | 1610-1640 | 詳細レビュー送信 |
-| submitAdd | 1640-1720 | トイレ追加（admin直接 or pending+EmailJS） |
-| searchCity | 1895-1950 | Google Places Autocomplete (New) |
-| goToPlaceId | 1952-1970 | Place Details → goToSearchResult |
-| init() | 2035-2070 | 起動フロー（geolocation, loadCity, invalidateSize） |
+| CSS | 26-636 | 全スタイル（シート, マーカー, フィルター, 投票等） |
+| HTML | 638-732 | DOM構造（#map, #bottom, #sheet, picker, nudge） |
+| L10N | 733-813 | JP/EN翻訳辞書 |
+| Firebase init | 851-861 | firebase.initializeApp, Firestore接続 |
+| addUIOverlays | 878-919 | lang-toggle, adminモード |
+| TIER_CONFIG | 971-999 | brands, types, colors, display設定 |
+| tierKey() | 1005-1049 | Tier判定ロジック（JP/US/UK/AU分岐, majorTerminals） |
+| makeIcon/cluster | 1051-1068 | マーカーアイコン生成 |
+| refreshZoom() | 1105-1170 | マーカー描画（viewport/cluster切替, isRefreshingガード） |
+| loadCity() | 1194-1270 | Firestore chunk並列fetch, キャッシュ(v6) |
+| renderCity() | 1310-1323 | allMarkers生成, applyFilter, renderNearby |
+| renderNearby() | 1388-1453 | 近傍リスト（searchPin/GPS起点, stageExpand） |
+| openDetail() | 1562-1697 | 詳細シート（顔, 投票, レビューステップ） |
+| answerQ1/Q2/Q3 | 1639-1697 | 快適さ評価ステップ（localStorage制限） |
+| submitAdd | 1810-1829 | トイレ追加（admin直接 or pending+EmailJS） |
+| submitReview | 1951-1979 | 詳細レビュー送信（Firestore + reviewSummaries更新） |
+| goToSearchResult | 1996-2032 | 検索結果 → loadCity → searchPin設置 |
+| searchCity | 2069-2121 | Google Places Text Search API |
+| applyLang() | 2178-2195 | UI文字列更新（タイトル, フィルター, タブ等） |
+| init() | 2200-2247 | 起動フロー（geolocation, loadCity, visitorカウンター） |
 
 ## Firestore構造
 
